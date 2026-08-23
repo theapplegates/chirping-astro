@@ -30,7 +30,7 @@ const GITHUB_HANDLE = import.meta.env.PUBLIC_GITHUB_HANDLE ?? '';
 const GITHUB_REPO = import.meta.env.PUBLIC_GITHUB_REPO ?? 'chirping-astro';
 const TWITTER_HANDLE = import.meta.env.PUBLIC_TWITTER_HANDLE ?? '';
 const CONTACT_EMAIL = import.meta.env.PUBLIC_CONTACT_EMAIL ?? '';
-const THEME_REPO_URL = 'https://github.com/kannansuresh/chirping-astro';
+const THEME_REPO_URL = 'https://github.com/theapplegates/chirping-astro';
 
 /**
  * Public GitHub coordinates of the deployed source. Useful for custom links
@@ -106,7 +106,7 @@ export const SITE: SiteConfig = {
   /** Public URL of the deployed site, no trailing slash. Breaks SEO/RSS if incorrect. */
   // `||` (not `??`) so an explicitly empty `SITE_URL=` in `.env` also
   // falls back to the default. Astro requires `site` to be a valid URL.
-  url: process.env.SITE_URL || 'https://chirping-astro.example.com',
+  url: process.env.SITE_URL || 'https://chirping.paulapplegate.com',
   /** Supported locales. Changing this requires adding/removing locale folders, content, and i18n entries. */
   locales: locales,
   /** Default locale. Changing this is a breaking, atomic, multi-file operation. */
@@ -159,7 +159,7 @@ export const SOCIALS: readonly SocialLink[] = [
  * (recommended) provide them via PUBLIC_GISCUS_* env vars at build time.
  */
 export const GISCUS: GiscusConfig = {
-  enabled: (import.meta.env.PUBLIC_GISCUS_ENABLED ?? 'false') === 'true',
+  enabled: (import.meta.env.PUBLIC_GISCUS_ENABLED ?? 'false') === 'false',
   repo: import.meta.env.PUBLIC_GISCUS_REPO ?? '',
   repoId: import.meta.env.PUBLIC_GISCUS_REPO_ID ?? '',
   category: import.meta.env.PUBLIC_GISCUS_CATEGORY ?? 'Announcements',

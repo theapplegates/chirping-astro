@@ -50,7 +50,7 @@ export const SITE: SiteConfig = {
   // ==========================================
 
   /** Default site title used as homepage <title> and meta. */
-  title: 'Chirping Astro',
+  title: 'Living Life',
   /** Site tagline / description. */
   description:
     'A modern, multilingual Astro v7 theme inspired by Chirpy — built with Tailwind v4, daisyUI, MDX, Pagefind, and Giscus.',

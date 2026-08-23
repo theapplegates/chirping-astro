@@ -8,6 +8,16 @@ translationKey: search-with-pagefind
 toc: true
 ---
 
+<cloudinary-picture
+  src="assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash"
+  alt="TODO: describe this image"
+  width="5568"
+  height="3712"
+  devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
+  breakpoints="50, 695, 712, 879, 1000"
+  picture-class="responsive-picture"
+/>
+
 This site has **instant, fully-static search** powered by
 [Pagefind](https://pagefind.app/). No third-party service, no server,
 no API key — Pagefind crawls the built `dist/` directory after

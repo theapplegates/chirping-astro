@@ -216,13 +216,29 @@ const extractProps = (node) => {
   };
 };
 
+// In .mdx files the tag is an mdxJsxFlowElement node, whose props live in an
+// `attributes` array (string values) rather than `properties`.
+const extractMdxProps = (node) => {
+  const p = {};
+  for (const attr of node.attributes || []) {
+    if (attr.type === "mdxJsxAttribute") p[attr.name] = attr.value;
+  }
+  return p;
+};
+
+const isCloudinaryPicture = (child) =>
+  (child.type === "element" && child.tagName === "cloudinary-picture") ||
+  (child.type === "mdxJsxFlowElement" && child.name === "cloudinary-picture");
+
 const walk = (node) => {
   if (!node || !Array.isArray(node.children)) return;
   const children = node.children;
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
-    if (child && child.type === "element" && child.tagName === "cloudinary-picture") {
-      children[i] = buildPicture(extractProps(child));
+    if (child && isCloudinaryPicture(child)) {
+      const props =
+        child.type === "mdxJsxFlowElement" ? extractMdxProps(child) : extractProps(child);
+      children[i] = buildPicture(props);
     } else {
       walk(child);
     }

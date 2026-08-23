@@ -8,15 +8,39 @@ translationKey: search-with-pagefind
 toc: true
 ---
 
-<cloudinary-picture
-  src="assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash"
-  alt="TODO: describe this image"
-  width="5568"
-  height="3712"
-  devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
-  breakpoints="50, 695, 712, 879, 1000"
-  picture-class="responsive-picture"
-/>
+<picture>
+  <source
+    type="image/jxl"
+    srcset="
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_jxl/c_scale,w_596/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.jxl 596w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_jxl/c_scale,w_958/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.jxl 958w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_jxl/c_scale,w_1429/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.jxl 1429w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_jxl/c_scale,w_1440/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.jxl 1440w"
+    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1440px"
+  />
+  <source
+    type="image/avif"
+    srcset="
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_avif/c_scale,w_596/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.avif 596w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_avif/c_scale,w_958/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.avif 958w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_avif/c_scale,w_1429/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.avif 1429w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_avif/c_scale,w_1440/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.avif 1440w"
+    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1440px"
+  />
+  <img
+    src="https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_webp/c_scale,w_800/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.webp"
+    srcset="
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_webp/c_scale,w_596/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.webp 596w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_webp/c_scale,w_958/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.webp 958w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_webp/c_scale,w_1429/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.webp 1429w,
+    https://res.cloudinary.com/paulapplegate-com/image/upload/q_auto,f_webp/c_scale,w_1440/v1787526649/breakpoints/v4ebdy6byjyodbquvytf.webp 1440w"
+    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1440px"
+    alt=""
+    loading="lazy"
+    width="1440"
+    height="810"
+  />
+</picture>
 
 This site has **instant, fully-static search** powered by
 [Pagefind](https://pagefind.app/). No third-party service, no server,

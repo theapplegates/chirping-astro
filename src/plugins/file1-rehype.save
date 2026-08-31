@@ -1,0 +1,923 @@
+/Users/thor6/Documents/chirping-astro-2/src/plugins/rehype-cloudinary-picture.mjs
+/**
+ * Rehype plugin that renders <cloudinary-picture> elements (used in .md posts)
+ * into a <picture> with JXL -> AVIF -> WebP <source>s plus a WebP <img> fallback.
+ *
+ * It must run AFTER rehype-raw (so the custom element is a real hast node) and
+ * BEFORE rehype-sanitize (so the emitted <picture>/<source>/<img> -- which the
+ * shared sanitize schema already allows -- pass through untouched). Because the
+ * output uses only standard tags, no `cloudinary-picture` entry is needed in the
+ * sanitize schema.
+ *
+ * URLs are built directly (rather than via astro-cloudinary/helpers) because this
+ * plugin runs in the plain-Node markdown pipeline, where the helper's ESM
+ * dependency tree trips Node's strict JSON-import-attribute checks. The build
+ * only needs the cloud name from the environment to construct them.
+ *
+ * Attributes arrive as strings from markdown (rehype-raw coerces numeric-looking
+ * ones like width/height to numbers); the parsers below handle both.
+ */
+const FORMAT_ORDER = ["jxl", "avif", "webp"];
+const MIME_TYPES = { jxl: "image/jxl", avif: "image/avif", webp: "image/webp" };
+
+const toNumber = (value) => (typeof value === "number" ? value : Number(value));
+
+const breakpointWidth = (b) => (typeof b === "number" ? b : b.width);
+
+const parseBreakpoints = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(breakpointWidth);
+  if (typeof raw === "object" && "breakpoints" in raw) {
+    return raw.breakpoints.map(breakpointWidth);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(breakpointWidth);
+      } catch {
+        /* not JSON -- fall through to comma split */
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((part) => Number(part.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  }
+  return [];
+};
+
+const parseDevices = (raw) => {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  return raw
+    .split(",")
+    .map((part) => {
+      const seg = part.trim().split("|");
+      return {
+        minWidth: Number(seg[0] ?? 0),
+        vw: Number(seg[1] ?? 100),
+        aspectRatio: (seg[2] ?? "").trim() || "original",
+      };
+    })
+    .filter(
+      (d) =>
+        Number.isFinite(d.minWidth) &&
+        d.minWidth >= 0 &&
+        Number.isFinite(d.vw) &&
+        d.vw > 0
+    );
+};
+
+const parseTransformations = (raw) => {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return raw;
+};
+
+const getCloudName = () =>
+  process.env.CLOUDINARY_CLOUD_NAME ||
+  process.env.PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  import.meta.env?.CLOUDINARY_CLOUD_NAME ||
+  import.meta.env?.PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+const buildUrl = (cloudName, src, { format, width, aspectRatio, transformations = {} }) => {
+  const ar = transformations.aspectRatio ?? aspectRatio;
+  const crop = transformations.crop ?? (ar && ar !== "original" ? "fill" : "limit");
+  const parts = [];
+  parts.push(crop === "fill" ? "c_fill" : "c_limit");
+  if (ar && ar !== "original") parts.push(`ar_${ar}`);
+  if (transformations.height) parts.push(`h_${transformations.height}`);
+  parts.push("q_auto");
+  parts.push(`f_${format}`);
+  parts.push(`w_${width}`);
+  const raw = transformations.rawTransformations;
+  if (Array.isArray(raw)) {
+    for (const r of raw) parts.push(String(r));
+  } else if (typeof raw === "string" && raw) {
+    parts.push(raw);
+  }
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${parts.join(",")}/${src}`;
+};
+
+const element = (tagName, properties = {}, children = []) => ({
+  type: "element",
+  tagName,
+  properties,
+  children,
+});
+
+const buildPicture = (props) => {
+  const src = props.src;
+  const alt = props.alt;
+  const intrinsicWidth = toNumber(props.width);
+  const intrinsicHeight = toNumber(props.height);
+  const sizes = props.sizes;
+  const extraTransformations = parseTransformations(props.transformations);
+
+  const parsedBreakpointWidths = parseBreakpoints(props.breakpoints);
+  if (parsedBreakpointWidths.length === 0) {
+    throw new Error(
+      `[cloudinary-picture] breakpoints are required for src="${src}". ` +
+        `Run "npm run cloudinary:breakpoints ${src}" and pass the generated widths.`
+    );
+  }
+  if (!alt || !String(alt).trim()) {
+    throw new Error(`[cloudinary-picture] a non-empty alt is required for src="${src}".`);
+  }
+
+  const cloudName = getCloudName();
+  if (!cloudName) {
+    throw new Error(
+      "[cloudinary-picture] a Cloudinary cloud name is required. Set CLOUDINARY_CLOUD_NAME (or PUBLIC_CLOUDINARY_CLOUD_NAME) in .env."
+    );
+  }
+
+  const breakpointWidths = [...new Set([...parsedBreakpointWidths, intrinsicWidth])]
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  const deviceList = parseDevices(props.devices);
+  const useArtDirection = deviceList.length > 0;
+  // Largest minWidth first so the browser matches the right <source media>; the
+  // minWidth:0 device is the <img> fallback crop.
+  const mediaDevices = useArtDirection
+    ? deviceList.filter((d) => d.minWidth > 0).sort((a, b) => b.minWidth - a.minWidth)
+    : [];
+  const fallbackDevice = useArtDirection
+    ? [...deviceList].sort((a, b) => a.minWidth - b.minWidth)[0]
+    : null;
+
+  const createUrl = (format, w, aspectRatio) =>
+    buildUrl(cloudName, src, { format, width: w, aspectRatio, transformations: extraTransformations });
+
+  const createSrcSet = (format, aspectRatio) =>
+    breakpointWidths.map((w) => `${createUrl(format, w, aspectRatio)} ${w}w`).join(", ");
+
+  const sourceChildren = useArtDirection
+    ? mediaDevices.flatMap((device) =>
+        FORMAT_ORDER.map((format) =>
+          element("source", {
+            media: `(min-width: ${device.minWidth}px)`,
+            type: MIME_TYPES[format],
+            sizes: `${device.vw}vw`,
+            srcSet: createSrcSet(format, device.aspectRatio),
+          })
+        )
+      )
+    : FORMAT_ORDER.map((format) =>
+        element("source", {
+          type: MIME_TYPES[format],
+          sizes: sizes,
+          srcSet: createSrcSet(format),
+        })
+      );
+
+  const fallbackSizes = useArtDirection ? `${fallbackDevice.vw}vw` : sizes;
+
+  const img = element("img", {
+    src: createUrl("webp", intrinsicWidth, fallbackDevice?.aspectRatio),
+    alt: String(alt),
+    width: intrinsicWidth,
+    height: intrinsicHeight,
+    sizes: fallbackSizes,
+    loading: props.loading || "lazy",
+    decoding: props.decoding || "async",
+  });
+
+  const pictureClass = props["picture-class"] ?? props.pictureClass;
+  return element(
+    "picture",
+    pictureClass ? { className: pictureClass } : {},
+    [...sourceChildren, img]
+  );
+};
+
+const extractProps = (node) => {
+  const p = node.properties || {};
+  return {
+    src: p.src,
+    alt: p.alt,
+    width: p.width,
+    height: p.height,
+    sizes: p.sizes,
+    breakpoints: p.breakpoints,
+    devices: p.devices,
+    "picture-class": p["picture-class"],
+    pictureClass: p.pictureClass,
+    loading: p.loading,
+    decoding: p.decoding,
+    transformations: p.transformations,
+  };
+};
+
+// In .mdx files the tag is an mdxJsxFlowElement node, whose props live in an
+// `attributes` array (string values) rather than `properties`.
+const extractMdxProps = (node) => {
+  const p = {};
+  for (const attr of node.attributes || []) {
+    if (attr.type === "mdxJsxAttribute") p[attr.name] = attr.value;
+  }
+  return p;
+};
+
+const isCloudinaryPicture = (child) =>
+  (child.type === "element" && child.tagName === "cloudinary-picture") ||
+  (child.type === "mdxJsxFlowElement" && child.name === "cloudinary-picture");
+
+const walk = (node) => {
+  if (!node || !Array.isArray(node.children)) return;
+  const children = node.children;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child && isCloudinaryPicture(child)) {
+      const props =
+        child.type === "mdxJsxFlowElement" ? extractMdxProps(child) : extractProps(child);
+      children[i] = buildPicture(props);
+    } else {
+      walk(child);
+    }
+  }
+};
+
+export const rehypeCloudinaryPicture = () => (tree) => {
+  walk(tree);
+  return tree;
+};
+
+export default rehypeCloudinaryPicture;
+
+
+File 2
+/Users/thor6/Documents/chirping-astro-2/scripts/cloudinary-breakpoints.mjs
+#!/usr/bin/env node
+/**
+ * Upload an image to Cloudinary, request responsive breakpoints, merge the
+ * resulting widths into src/data/cloudinary-breakpoints.json, and print a
+ * ready-to-paste <Picture> snippet (intrinsic width/height pulled from the
+ * upload response) plus its import line to stdout.
+ *
+ * Usage:
+ *   npm run cloudinary:breakpoints -- src/assets/images/my-photo.jpg
+ *   npm run cloudinary:breakpoints -- src/assets/images/my-photo.jpg --sizes="100vw"
+ *
+ * With no --devices / --sizes flag the script shows device checkboxes
+ * (Desktop / Laptop / Tablet / Phone) and emits an art-direction `devices`
+ * string (per-device crops + a derived `sizes`). Press Enter to include all,
+ * or type a custom sizes string for simple responsive mode. --devices="..." or
+ * --sizes="..." skips the prompt. In a non-interactive shell all devices are
+ * used. These only affect the printed snippet, not the upload.
+ *
+ * The Cloudinary public ID is derived from the file path by dropping the
+ * leading "src/" segment and the file extension, e.g.
+ *   src/assets/images/my-photo.jpg -> assets/images/my-photo
+ *
+ * Credentials are read from .env via Node's --env-file-if-exists flag (see
+ * package.json), or from the surrounding process environment. The build does
+ * NOT need the API key/secret -- only this upload script does.
+ */
+import { createRequire } from "node:module";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { dirname, extname, resolve, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import * as readline from "node:readline/promises";
+import { stdin, stdout } from "node:process";
+
+const require = createRequire(import.meta.url);
+const cloudinary = require("cloudinary").v2;
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const BREAKPOINTS_FILE = resolve(ROOT, "src/data/cloudinary-breakpoints.json");
+
+/**
+ * Device-based art-direction presets. Each device has a viewport floor
+ * (minWidth), the portion of the viewport the image occupies (vw -> sizes),
+ * and a crop aspect ratio. minWidth 0 is the smallest device and becomes the
+ * <img> fallback crop.
+ */
+const DEVICE_PRESETS = [
+  { key: "desktop", label: "Desktop  >1200px",  minWidth: 1200, vw: 40,  aspectRatio: "original" },
+  { key: "laptop",  label: "Laptop   992-1199", minWidth: 992,  vw: 60,  aspectRatio: "16:9" },
+  { key: "tablet",  label: "Tablet   768-991",  minWidth: 768,  vw: 70,  aspectRatio: "4:3" },
+  { key: "phone",   label: "Phone    <768",     minWidth: 0,    vw: 100, aspectRatio: "1:1" },
+];
+
+function parseArgs(argv) {
+  let filePath = null;
+  let sizesArg = null;
+  let devicesArg = null;
+  for (const arg of argv.slice(2)) {
+    if (arg === "--") continue;
+    if (arg.startsWith("--sizes=")) {
+      sizesArg = arg.slice("--sizes=".length);
+    } else if (arg.startsWith("--devices=")) {
+      devicesArg = arg.slice("--devices=".length);
+    } else if (!filePath) {
+      filePath = arg;
+    }
+  }
+  return { filePath, sizesArg, devicesArg };
+}
+
+/** `sizes` string from a device selection (largest viewport first). */
+function buildSizes(selected) {
+  const sorted = [...selected].sort((a, b) => a.minWidth - b.minWidth);
+  const smallest = sorted[0];
+  const rest = sorted.slice(1).sort((a, b) => b.minWidth - a.minWidth);
+  const clauses = rest.map((d) => `(min-width: ${d.minWidth}px) ${d.vw}vw`);
+  return [...clauses, `${smallest.vw}vw`].join(", ");
+}
+
+/** Compact `devices` string for the <Picture> prop: "minWidth|vw|aspectRatio,...". */
+function buildDevicesString(selected) {
+  return selected.map((d) => `${d.minWidth}|${d.vw}|${d.aspectRatio}`).join(",");
+}
+
+/** Parse a compact "minWidth|vw|aspectRatio,..." string into device specs. */
+function parseDevicesString(input) {
+  return input
+    .split(",")
+    .map((part) => {
+      const seg = part.trim().split("|");
+      return {
+        minWidth: Number(seg[0]),
+        vw: Number(seg[1]),
+        aspectRatio: (seg[2] ?? "").trim() || "original",
+      };
+    })
+    .filter(
+      (d) =>
+        Number.isFinite(d.minWidth) &&
+        d.minWidth >= 0 &&
+        Number.isFinite(d.vw) &&
+        d.vw > 0
+    );
+}
+
+/**
+ * Returns either { mode: "art", devices } (art direction) or
+ * { mode: "sizes", sizes } (simple responsive). --devices / --sizes skip the
+ * prompt; a non-numeric custom answer becomes a plain sizes string.
+ */
+async function chooseDevices(sizesArg, devicesArg) {
+  if (devicesArg) {
+    const parsed = parseDevicesString(devicesArg);
+    if (parsed.length > 0) return { mode: "art", devices: parsed };
+  }
+  if (sizesArg) return { mode: "sizes", sizes: sizesArg };
+
+  console.log("\nArt direction (check the device ranges to include):");
+  DEVICE_PRESETS.forEach((d, i) => {
+    console.log(`  [x] ${i + 1}) ${d.label}   ${d.aspectRatio}   ${d.vw}vw`);
+  });
+
+  if (!stdin.isTTY) return { mode: "art", devices: DEVICE_PRESETS };
+
+  const rl = readline.createInterface({ input: stdin, output: stdout });
+  let answer;
+  try {
+    answer = await rl.question(
+      "Enter numbers to include, comma-separated (Enter = all, or type a custom sizes): "
+    );
+  } finally {
+    rl.close();
+  }
+  const trimmed = answer.trim();
+  if (!trimmed) return { mode: "art", devices: DEVICE_PRESETS };
+
+  const nums = trimmed.split(",").map((t) => t.trim()).filter(Boolean);
+  if (nums.length > 0 && nums.every((n) => /^\d+$/.test(n))) {
+    const selected = [];
+    for (const n of nums) {
+      const idx = Number(n) - 1;
+      if (idx >= 0 && idx < DEVICE_PRESETS.length) {
+        const d = DEVICE_PRESETS[idx];
+        if (!selected.includes(d)) selected.push(d);
+      }
+    }
+    if (selected.length > 0) return { mode: "art", devices: selected };
+  }
+  // Not a number list -> treat as a custom sizes string (simple responsive).
+  return { mode: "sizes", sizes: trimmed };
+}
+
+/** src/assets/images/my-photo.jpg -> assets/images/my-photo */
+function derivePublicId(filePath) {
+  const rel = relative(ROOT, resolve(ROOT, filePath)).replace(/\\/g, "/");
+  const withoutSrc = rel.startsWith("src/") ? rel.slice(4) : rel;
+  const ext = extname(withoutSrc);
+  return ext ? withoutSrc.slice(0, -ext.length) : withoutSrc;
+}
+
+async function readBreakpoints() {
+  if (!existsSync(BREAKPOINTS_FILE)) return {};
+  try {
+    return JSON.parse(await readFile(BREAKPOINTS_FILE, "utf8"));
+  } catch (err) {
+    throw new Error(`Could not parse ${BREAKPOINTS_FILE}: ${err.message}`);
+  }
+}
+
+async function writeBreakpoints(data) {
+  await mkdir(dirname(BREAKPOINTS_FILE), { recursive: true });
+  await writeFile(BREAKPOINTS_FILE, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+}
+
+async function main() {
+  const { filePath, sizesArg, devicesArg } = parseArgs(process.argv);
+  if (!filePath) {
+    console.error(
+      "Usage: npm run cloudinary:breakpoints -- <path-to-image> [--devices=\"...\"] [--sizes=\"...\"]"
+    );
+    process.exit(1);
+  }
+
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    console.error(
+      "Missing Cloudinary credentials. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in .env."
+    );
+    process.exit(1);
+  }
+
+  const absPath = resolve(ROOT, filePath);
+  if (!existsSync(absPath)) {
+    console.error(`Image not found: ${absPath}`);
+    process.exit(1);
+  }
+
+  const publicId = derivePublicId(filePath);
+
+  cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret });
+
+  console.log(`Uploading "${absPath}" as public_id "${publicId}"...`);
+
+  const result = await cloudinary.uploader.upload(absPath, {
+    public_id: publicId,
+    unique_filename: false,
+    overwrite: true,
+    resource_type: "image",
+    responsive_breakpoints: [
+      {
+        create_derived: false,
+        breakpoints: {
+          min_width: 200,
+          max_width: 2000,
+          max_images: 10,
+          auto_optimal_breakpoints: true,
+        },
+      },
+    ],
+  });
+
+  const widths =
+    result.responsive_breakpoints?.[0]?.breakpoints?.map((bp) => bp.width) ?? [];
+
+  if (widths.length === 0) {
+    console.error("Cloudinary returned no breakpoints. Full response:");
+    console.error(JSON.stringify(result, null, 2));
+    process.exit(1);
+  }
+
+  const sorted = [...new Set(widths)].sort((a, b) => a - b);
+
+  const data = await readBreakpoints();
+  data[publicId] = sorted;
+  await writeBreakpoints(data);
+
+  console.log(
+    `Wrote ${sorted.length} breakpoints for "${publicId}" to ${relative(ROOT, BREAKPOINTS_FILE)}`
+  );
+  console.log(sorted.join(", "));
+
+  // Intrinsic dimensions come from the upload response. The Picture.astro
+  // component reads src/alt/width/height/breakpoints plus either `devices`
+  // (art direction: per-device crops via <source media>) or `sizes` (simple
+  // responsive). It rejects an empty alt, so replace the alt text before
+  // publishing.
+  const intrinsicWidth = result.width;
+  const intrinsicHeight = result.height;
+  const choice = await chooseDevices(sizesArg, devicesArg);
+  let snippet;
+  if (choice.mode === "art") {
+    const devicesStr = buildDevicesString(choice.devices);
+    const sizesForReference = buildSizes(choice.devices);
+    snippet = [
+      `<cloudinary-picture`,
+      `  src="${publicId}"`,
+      `  alt="TODO: describe this image"`,
+      `  width="${intrinsicWidth}"`,
+      `  height="${intrinsicHeight}"`,
+      `  devices="${devicesStr}"`,
+      `  breakpoints="${sorted.join(", ")}"`,
+      `  picture-class="responsive-picture"`,
+      `/>`,
+    ].join("\n");
+    console.log(`sizes (derived, for reference): ${sizesForReference}`);
+    console.log(`devices: ${devicesStr}`);
+  } else {
+    snippet = [
+      `<cloudinary-picture`,
+      `  src="${publicId}"`,
+      `  alt="TODO: describe this image"`,
+      `  width="${intrinsicWidth}"`,
+      `  height="${intrinsicHeight}"`,
+      `  sizes="${choice.sizes}"`,
+      `  breakpoints="${sorted.join(", ")}"`,
+      `  picture-class="responsive-picture"`,
+      `/>`,
+    ].join("\n");
+    console.log(`sizes: ${choice.sizes}`);
+  }
+
+  console.log("\nPaste this into a .md post (replace the alt text).");
+  console.log("No imports needed -- <cloudinary-picture> is rendered at build");
+  console.log("time into a <picture> with JXL -> AVIF -> WebP sources.\n");
+  console.log(snippet);
+  console.log("");
+}
+
+main().catch((err) => {
+  console.error(err?.message || err);
+  process.exit(1);
+});
+
+File 3
+/Users/thor6/Documents/chirping-astro-2/astro.config.mjs
+// @ts-check
+import { satteri, satteriHeadingIdsPlugin } from '@astrojs/markdown-satteri';
+import mdx from '@astrojs/mdx';
+import sitemap from '@astrojs/sitemap';
+import tailwindcss from '@tailwindcss/vite';
+import expressiveCode from 'astro-expressive-code';
+import icon from 'astro-icon';
+import { defineConfig, fontProviders, svgoOptimizer } from 'astro/config';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import satteriExternalLinks from 'satteri-external-links';
+import { katex } from '@nullpinter/satteri-katex';
+import { satteriAlert } from './src/plugins/satteri-alert';
+import { satteriAsHTML } from './src/plugins/satteri-ashtml';
+import { satteriBaseLinks } from './src/plugins/satteri-base-links';
+import { satteriAutolinkHeadings } from './src/plugins/satteri-autolink-headings.ts';
+import { satteriMermaid } from './src/plugins/satteri-mermaid.ts';
+import rehypeRaw from "rehype-raw";
+import { rehypeCloudinaryPicture } from "./src/plugins/rehype-cloudinary-picture.mjs";
+
+import { SITE } from './src/config';
+
+const rawBase = (process.env.BASE_PATH ?? '/').replace(/\/$/, '');
+const BASE = rawBase.startsWith('/') ? rawBase : `/${rawBase}`;
+const SITEMAP_XSL_HREF = `${BASE}/sitemap/styles.xsl`;
+const SKIP_RSS_SITEMAP = process.env.CI_SKIP_RSS_SITEMAP === 'true';
+
+/**
+ * Set of URL path segments that belong to unlisted posts/pages.
+ * Populated by `collectUnlistedUrls()` integration before the sitemap
+ * integration runs, so the sitemap `filter` can exclude them.
+ *
+ * We use path segments (e.g. "posts/my-slug") rather than full URLs so
+ * the check works regardless of `SITE_URL` or `BASE_PATH` values.
+ */
+const unlistedPathSegments = new Set();
+
+/**
+ * Integration that reads the content collection at build time and
+ * populates `unlistedPathSegments` with the URL path segments of every
+ * unlisted post. Must be listed BEFORE `@astrojs/sitemap` in the
+ * integrations array.
+ */
+function collectUnlistedUrls() {
+  return {
+    name: 'chirpy:collect-unlisted-urls',
+    hooks: {
+      'astro:build:start': async () => {
+        try {
+          // Dynamically import so this only runs during builds (not in
+          // the config evaluation phase where astro:content isn't ready).
+          const { getCollection } = await import('astro:content');
+          const entries = await getCollection('posts');
+          for (const entry of entries) {
+            if (!entry.data.unlisted) continue;
+            // Derive locale and slug from the entry id (e.g. "en/my-post.md").
+            const segs = entry.id.split(/[\\/]/);
+            const locale = segs[0] && /** @type {readonly string[]} */ (SITE.locales).includes(segs[0]) ? segs[0] : SITE.defaultLocale;
+            const slug = segs.slice(1).join('/').replace(/\.(md|mdx)$/i, '');
+            if (locale === SITE.defaultLocale) {
+              unlistedPathSegments.add(`posts/${slug}`);
+            } else {
+              unlistedPathSegments.add(`${locale}/posts/${slug}`);
+            }
+          }
+        } catch {
+          // Content collections aren't available in all build contexts
+          // (e.g. CI fast mode). Silently skip — the sitemap will include
+          // unlisted posts in that case, which is acceptable for CI.
+        }
+      },
+    },
+  };
+}
+
+/**
+ * Tiny inline integration: after `@astrojs/sitemap` runs, rewrite the
+ * absolute XSL `href` it emits (always prefixed with `site`, e.g.
+ * `https://aneejian.com/sitemap/styles.xsl`) to a root-relative path.
+ *
+ * Why: a root-relative href works in BOTH environments
+ *   - production: same origin as the sitemap, browsers apply the XSL
+ *   - `bun serve` / preview: same origin (localhost), no cross-origin
+ *     XSLT block (which renders as a blank page in browsers).
+ *
+ * Crawlers ignore `<?xml-stylesheet ?>` entirely, so SEO is unaffected.
+ */
+function rewriteSitemapXslToRelative() {
+  return {
+    name: 'chirpy:rewrite-sitemap-xsl',
+    hooks: {
+      'astro:build:done': (/** @type {{ dir: URL }} */ { dir }) => {
+        const distDir = fileURLToPath(dir);
+        const files = readdirSync(distDir).filter(
+          (f) => f.startsWith('sitemap') && f.endsWith('.xml'),
+        );
+        for (const file of files) {
+          const path = join(distDir, file);
+          const xml = readFileSync(path, 'utf8');
+          const fixed = xml.replace(
+            /<\?xml-stylesheet\b[^?]*\?>/,
+            `<?xml-stylesheet type="text/xsl" href="${SITEMAP_XSL_HREF}"?>`,
+          );
+          if (fixed !== xml) writeFileSync(path, fixed);
+        }
+      },
+    },
+  };
+}
+
+// https://astro.build/config
+export default defineConfig({
+  site: SITE.url,
+  // GitHub Pages serves the project at https://<user>.github.io/<repo>/,
+  // so production builds need `base` to match that subpath — every
+  // generated asset URL (CSS, JS, images, favicons) is prefixed with it.
+  //
+  // In `bun run dev`, however, we want the site to open at plain
+  // `http://localhost:4321/` for a friction-free local experience. The
+  // `BASE_PATH` env var (read from `.env`) lets each environment opt in:
+  //   - `.env` (committed empty / unset)         → dev runs at `/`
+  //   - CI / Pages workflow sets BASE_PATH=/chirping-astro for the build
+  //
+  // In source code, always build absolute paths through `withBase()` /
+  // `localizedPath()` in `src/i18n/utils.ts` so they pick up this value
+  // automatically (via `import.meta.env.BASE_URL`).
+  base: process.env.BASE_PATH ?? '/',
+  trailingSlash: 'ignore',
+  build: {
+    format: 'directory',
+  },
+  prefetch: true,
+
+  // Image optimization (https://docs.astro.build/en/guides/images/).
+  //
+  // - Local images imported from `src/` (or `src/assets/`) are optimized
+  //   automatically by `astro:assets`.
+  // - Images in `public/` are copied as-is and CANNOT be transformed.
+  // - Remote URLs must match a `remotePatterns` entry below before they
+  //   can be passed to `<Image>` / `<Picture>` for optimization.
+  //
+  // The default Sharp service generates modern formats (WebP/AVIF) and
+  // responsive `srcset`s. With `responsiveStyles: true` and a default
+  // `layout`, every `<Image layout="...">` automatically gets the right
+  // `width`/`height`/`object-fit` styles applied.
+  image: {
+    layout: 'constrained',
+    responsiveStyles: true,
+    remotePatterns: [
+      // Unsplash (used by demo posts).
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      // Common CDNs many users plug in. Extend or trim as needed.
+      { protocol: 'https', hostname: '**.githubusercontent.com' },
+      { protocol: 'https', hostname: 'cdn.jsdelivr.net' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'imagedelivery.net' },
+    ],
+  },
+
+  // i18n config: EN is default and serves at root (no prefix), FR served at /fr.
+  // We rely on filesystem routing (src/pages and src/pages/[...locale]) for the actual
+  // routes, but still expose locales here so integrations like sitemap can
+  // generate hreflang alternates correctly.
+  i18n: {
+    locales: [...SITE.locales],
+    defaultLocale: SITE.defaultLocale,
+    routing: {
+      prefixDefaultLocale: false,
+      redirectToDefaultLocale: false,
+    },
+  },
+
+  markdown: {
+    // `remark-math` parses `$inline$` and `$$display$$` blocks into MDAST
+    // math nodes; `rehype-katex` converts them to pre-rendered HTML at
+    // build time so no JavaScript is shipped to the client.
+    //
+    // The accompanying KaTeX stylesheet (`katex/dist/katex.min.css`) is
+    // loaded ONLY on pages that opt in via `math: true` in frontmatter,
+    // through `<MathStyles />` in the post / page layouts. This keeps the
+    // CSS (~25kB gzipped) off pages that don't need it.
+    rehypePlugins: [rehypeRaw, rehypeCloudinaryPicture],
+
+    processor: satteri({
+      features: { math: true },
+      mdastPlugins: [satteriAlert(), satteriAsHTML(), katex(), satteriMermaid()],
+      hastPlugins: [
+        satteriHeadingIdsPlugin(),
+        satteriAutolinkHeadings(),
+        satteriExternalLinks({
+          target: '_blank',
+          rel: ['nofollow', 'noopener', 'noreferrer']
+        }),
+        satteriBaseLinks({ base: BASE }),
+      ],
+    }),
+  },
+
+  integrations: [
+    icon({
+      // Astro-Icon will tree-shake from @iconify-json/lucide so only the
+      // icons actually referenced make it into the build.
+      iconDir: 'src/icons',
+    }),
+    // Expressive Code provides syntax highlighting (Shiki under the hood)
+    // plus extra features: code-block frames + titles, copy button, line
+    // markers, diffs, word wrap, collapsible sections.
+    // https://expressive-code.com/
+    expressiveCode({
+      themes: ['github-light', 'github-dark-dimmed'],
+      // Bind the active theme to our `<html data-theme>` attribute instead
+      // of the default `prefers-color-scheme` media query so the theme
+      // toggle in the sidebar takes effect immediately.
+      themeCssSelector: (theme) =>
+        `[data-theme='${theme.type === 'dark' ? 'chirpy-dark' : 'chirpy-light'}']`,
+      useDarkModeMediaQuery: false,
+      shiki: {
+        langAlias: {
+          env: 'dotenv',
+        },
+      },
+      styleOverrides: {
+        borderRadius: '0.5rem',
+        codeFontFamily:
+          "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        codeFontSize: '0.875rem',
+        frames: {
+          shadowColor: 'transparent',
+        },
+      },
+    }),
+    // MDX must come after Expressive Code so EC can transform fenced
+    // code blocks inside .mdx files too.
+    mdx(),
+    ...(SKIP_RSS_SITEMAP
+      ? []
+      : [
+          collectUnlistedUrls(),
+          sitemap({
+            i18n: {
+              defaultLocale: SITE.defaultLocale,
+              locales: Object.fromEntries(SITE.locales.map((l) => [l, l])),
+            },
+            // Browsers (and only browsers) apply this XSL to render a
+            // human-readable view of `sitemap-index.xml` and `sitemap-0.xml`.
+            // Search-engine crawlers ignore the processing instruction.
+            // Note: `@astrojs/sitemap` rewrites this into an ABSOLUTE URL using
+            // `site`. The `rewriteSitemapXslToRelative()` integration below
+            // turns it back into a root-relative path so local preview works.
+            xslURL: SITEMAP_XSL_HREF,
+            filter: (page) => {
+              if (page.includes('/draft/') || page.endsWith('/404/')) return false;
+              // Exclude unlisted posts from the sitemap.
+              for (const seg of unlistedPathSegments) {
+                if (page.includes(String(seg))) return false;
+              }
+              return true;
+            },
+          }),
+          rewriteSitemapXslToRelative(),
+        ]),
+  ],
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
+
+  experimental: {
+    contentIntellisense: true,
+    // Astro 7.x still exposes SVG optimization as an experimental flag.
+    // The 6.2 change renamed the old `experimental.svgo` flag to the new
+    // `experimental.svgOptimizer` API; it is not a stable top-level config yet.
+    svgOptimizer: svgoOptimizer({
+      multipass: true,
+    }),
+  },
+
+  fonts: [
+    // Source Sans 3 — main UI font from @fontsource/source-sans-3 npm package
+    {
+      name: 'Source Sans 3',
+      cssVariable: '--font-source-sans-3',
+      provider: fontProviders.local(),
+      options: {
+        variants: [
+          {
+            weight: '400',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-400-normal.woff2',
+            ],
+          },
+          {
+            weight: '600',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-600-normal.woff2',
+            ],
+          },
+          {
+            weight: '700',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-700-normal.woff2',
+            ],
+          },
+          {
+            weight: '900',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-900-normal.woff2',
+            ],
+          },
+        ],
+      },
+    },
+    // Lato — secondary font from @fontsource/lato npm package
+    {
+      name: 'Lato',
+      cssVariable: '--font-lato',
+      provider: fontProviders.local(),
+      options: {
+        variants: [
+          {
+            weight: '300',
+            style: 'normal',
+            src: ['./node_modules/@fontsource/lato/files/lato-latin-300-normal.woff2'],
+          },
+          {
+            weight: '400',
+            style: 'normal',
+            src: ['./node_modules/@fontsource/lato/files/lato-latin-400-normal.woff2'],
+          },
+        ],
+      },
+    },
+    // JetBrains Mono — monospace font from @fontsource/jetbrains-mono npm package
+    {
+      name: 'JetBrains Mono',
+      cssVariable: '--font-jetbrains-mono',
+      provider: fontProviders.local(),
+      options: {
+        variants: [
+          {
+            weight: '400',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2',
+            ],
+          },
+          {
+            weight: '600',
+            style: 'normal',
+            src: [
+              './node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2',
+            ],
+          },
+        ],
+      },
+    },
+  ],
+});
+
+File 4
+

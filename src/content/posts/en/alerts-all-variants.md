@@ -9,12 +9,12 @@ toc: true
 ---
 
 <cloudinary-picture
-  src="assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash"
-  alt="Sunflowers"
-  width="5568"
-  height="3712"
+  src="assets/images/gabriel-hohenstein-I6y11ychtCw-unsplash"
+  alt="A drink in hand."
+  width="3726"
+  height="2484"
   devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
-  breakpoints="50, 695, 712, 879, 1000"
+  breakpoints="50, 391, 734, 996, 1000"
   picture-class="responsive-picture"
 />
 

@@ -25,7 +25,9 @@
  * the cloud name from the environment to construct them.
  */
 
+import { readFileSync } from 'node:fs';
 import process from 'node:process';
+import { fileURLToPath, URL } from 'node:url';
 
 import { defineHastPlugin } from 'satteri';
 import type { HastVisitorContext } from 'satteri';
@@ -115,8 +117,30 @@ const parseTransformations = (raw: unknown): Record<string, unknown> => {
   return {};
 };
 
+/**
+ * Committed fallback for CI builds: .env never reaches CI and the deploy
+ * workflow doesn't forward env vars to the build step, so the cloud name
+ * also lives in src/data/cloudinary-config.json. It's not a secret — it
+ * appears in every rendered image URL. Env vars take precedence.
+ */
+const readCloudNameFromConfig = (): string | undefined => {
+  try {
+    const configPath = fileURLToPath(new URL('../data/cloudinary-config.json', import.meta.url));
+    const parsed: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
+    if (parsed && typeof parsed === 'object' && 'cloudName' in parsed) {
+      const name = (parsed as { cloudName: unknown }).cloudName;
+      if (typeof name === 'string' && name.trim()) return name.trim();
+    }
+  } catch {
+    /* config file missing or malformed -- handled by the caller's error */
+  }
+  return undefined;
+};
+
 const getCloudName = (): string | undefined =>
-  process.env.CLOUDINARY_CLOUD_NAME || process.env.PUBLIC_CLOUDINARY_CLOUD_NAME;
+  process.env.CLOUDINARY_CLOUD_NAME ||
+  process.env.PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  readCloudNameFromConfig();
 
 const buildUrl = (
   cloudName: string,
@@ -224,7 +248,7 @@ function buildPictureParts(props: Props): PictureParts {
   const cloudName = getCloudName();
   if (!cloudName) {
     throw new Error(
-      '[cloudinary-picture] a Cloudinary cloud name is required. Set CLOUDINARY_CLOUD_NAME (or PUBLIC_CLOUDINARY_CLOUD_NAME) in .env.',
+      '[cloudinary-picture] a Cloudinary cloud name is required. Set CLOUDINARY_CLOUD_NAME (or PUBLIC_CLOUDINARY_CLOUD_NAME) in .env, or set cloudName in src/data/cloudinary-config.json.',
     );
   }
 

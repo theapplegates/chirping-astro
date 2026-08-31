@@ -36,8 +36,8 @@ interface Props extends Omit<HTMLAttributes<'img'>, 'src' | 'srcset' | 'width' |
   sizes?: string;
   /** Astro responsive layout mode. */
   layout?: Layout;
-  /** Output format(s). Defaults to webp. */
-  format?: 'webp' | 'avif' | 'png' | 'jpeg' | 'jpg';
+  /** Output format(s). Defaults to avif. */
+  format?: 'avif' | 'webp' | 'png' | 'jpeg' | 'jpg';
   /** Render priority. */
   loading?: 'lazy' | 'eager';
   decoding?: 'async' | 'sync' | 'auto';

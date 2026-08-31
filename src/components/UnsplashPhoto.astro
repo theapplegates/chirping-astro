@@ -1,0 +1,20 @@
+---
+const src = Astro.props.src;
+const alt = Astro.props.alt;
+const caption = Astro.props.caption;
+const photographer = Astro.props.photographer;
+const photographerUrl = Astro.props.photographerUrl;
+const photoUrl = Astro.props.photoUrl;
+---
+
+<figure class="unsplash-figure">
+  <figcaption class="unsplash-caption">
+    {caption}
+    <span class="unsplash-credit">
+      Photo by <a href={photographerUrl} target="_blank" rel="noopener noreferrer">{photographer}</a
+      >
+      on <a href={photoUrl} target="_blank" rel="noopener noreferrer">Unsplash</a>.
+    </span>
+  </figcaption>
+  <img src={src} alt={alt} loading="lazy" />
+</figure>

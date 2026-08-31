@@ -8,6 +8,16 @@ translationKey: alerts-all-variants
 toc: true
 ---
 
+<cloudinary-picture
+  src="assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash"
+  alt="Sunflowers"
+  width="5568"
+  height="3712"
+  devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
+  breakpoints="50, 695, 712, 879, 1000"
+  picture-class="responsive-picture"
+/>
+
 This post demonstrates every variant supported by the custom `alert` code block language.
 
 It works in both `.md` and `.mdx` files.

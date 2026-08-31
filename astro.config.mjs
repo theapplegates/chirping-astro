@@ -17,8 +17,7 @@ import { satteriAsHTML } from './src/plugins/satteri-ashtml';
 import { satteriBaseLinks } from './src/plugins/satteri-base-links';
 import { satteriAutolinkHeadings } from './src/plugins/satteri-autolink-headings.ts';
 import { satteriMermaid } from './src/plugins/satteri-mermaid.ts';
-import rehypeRaw from "rehype-raw";
-import { rehypeCloudinaryPicture } from "./src/plugins/rehype-cloudinary-picture.mjs";
+import { satteriCloudinaryPicture } from './src/plugins/satteri-cloudinary-picture.ts';
 
 import { SITE } from './src/config';
 
@@ -181,12 +180,15 @@ export default defineConfig({
     // loaded ONLY on pages that opt in via `math: true` in frontmatter,
     // through `<MathStyles />` in the post / page layouts. This keeps the
     // CSS (~25kB gzipped) off pages that don't need it.
-    rehypePlugins: [rehypeRaw, rehypeCloudinaryPicture],
-
+    // NOTE: with a custom `processor`, Astro ignores `markdown.rehypePlugins`
+    // entirely, and @astrojs/mdx only inherits a *satteri* processor's
+    // mdastPlugins/hastPlugins — so the Cloudinary picture rewriter MUST be
+    // registered here in the processor's `hastPlugins`.
     processor: satteri({
       features: { math: true },
       mdastPlugins: [satteriAlert(), satteriAsHTML(), katex(), satteriMermaid()],
       hastPlugins: [
+        satteriCloudinaryPicture(),
         satteriHeadingIdsPlugin(),
         satteriAutolinkHeadings(),
         satteriExternalLinks({

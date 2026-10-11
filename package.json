@@ -44,7 +44,7 @@
     "astro": "7.2.4",
     "astro-expressive-code": "^0.44.0",
     "astro-icon": "^1.1.5",
-    "cloudinary": "^2.10.1",
+    "cloudinary": "^2.11.0",
     "mermaid": "^11.16.0",
     "satteri-external-links": "^0.1.0"
   },

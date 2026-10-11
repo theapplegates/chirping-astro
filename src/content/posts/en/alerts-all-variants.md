@@ -18,6 +18,16 @@ toc: true
   picture-class="responsive-picture"
 />
 
+<cloudinary-picture
+  src="assets/images/sammy-swae-3bk6bfnTNvE-unsplash"
+  alt="A tattoo"
+  width="4672"
+  height="7008"
+  devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
+  breakpoints="50, 325, 496, 646, 765, 843, 907, 975, 1000"
+  picture-class="responsive-picture"
+/>
+
 This post demonstrates every variant supported by the custom `alert` code block language.
 
 It works in both `.md` and `.mdx` files.

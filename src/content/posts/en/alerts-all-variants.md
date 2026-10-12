@@ -30,7 +30,7 @@ toc: true
 
 <cloudinary-picture
   src="assets/images/cshong-o4ZTj9m91WU-unsplash"
-  alt="Mickey D's"
+  alt="Mcdonalds"
   width="7952"
   height="5304"
   devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"

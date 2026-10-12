@@ -14,7 +14,7 @@ toc: true
   width="3726"
   height="2484"
   devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
-  breakpoints="50, 391, 734, 996, 1000"
+  breakpoints="200, 1039, 1290, 1428, 1714, 1888, 1996, 2000"
   picture-class="responsive-picture"
 />
 
@@ -24,7 +24,7 @@ toc: true
   width="4672"
   height="7008"
   devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
-  breakpoints="50, 325, 496, 646, 765, 843, 907, 975, 1000"
+  breakpoints="200, 677, 955, 1202, 1410, 1433, 1769, 1946, 1961, 2000"
   picture-class="responsive-picture"
 />
 

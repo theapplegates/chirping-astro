@@ -212,12 +212,10 @@ async function main() {
     responsive_breakpoints: [
       {
         create_derived: false,
-        breakpoints: {
-          min_width: 200,
-          max_width: 2000,
-          max_images: 10,
-          auto_optimal_breakpoints: true,
-        },
+        min_width: 200,
+        max_width: 2000,
+        bytes_step: 20000,
+        max_images: 10,
       },
     ],
   });

@@ -1,6 +1,15 @@
 {
-  "assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash": [50, 695, 712, 879, 1000],
-  "assets/images/sammy-swae-3bk6bfnTNvE-unsplash": [50, 325, 496, 646, 765, 843, 907, 975, 1000],
-  "assets/images/gabriel-hohenstein-I6y11ychtCw-unsplash": [50, 391, 734, 996, 1000],
-  "assets/images/cshong-o4ZTj9m91WU-unsplash": [50, 582, 857, 900, 979, 1000]
+  "assets/images/kristaps-ungurs-01k_oAMpt7E-unsplash": [
+    200, 625, 780, 856, 1040, 1175, 1595, 1810, 1938, 2000
+  ],
+  "assets/images/sammy-swae-3bk6bfnTNvE-unsplash": [
+    200, 677, 955, 1202, 1410, 1433, 1769, 1946, 1961, 2000
+  ],
+  "assets/images/gabriel-hohenstein-I6y11ychtCw-unsplash": [
+    200, 1039, 1290, 1428, 1714, 1888, 1996, 2000
+  ],
+  "assets/images/wolfgang-hasselmann-Lx5Y37G0nlM-unsplash": [
+    200, 644, 916, 1159, 1350, 1526, 1809, 1968, 1976, 2000
+  ],
+  "assets/images/cshong-o4ZTj9m91WU-unsplash": [200, 1018, 1362, 1648, 1850, 1991, 1997, 2000]
 }

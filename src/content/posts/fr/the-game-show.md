@@ -2,7 +2,7 @@
 title: 'Le jeu télévisé'
 description: "Quand j'avais dix ans, j'ai participé à un jeu télévisé."
 pubDate: 12/10/2026
-tags: ["Jeu télévisé", "amusant", "1979", "New York", "Dick Clark"]
+tags: ['Jeu télévisé', 'amusant', '1979', 'New York', 'Dick Clark']
 categories: [Authoring]
 translationKey: alerts-all-variants
 toc: true
@@ -20,8 +20,8 @@ Avertissement : Je ne parle pas français. J'ai traduit cette page à l'aide de 
   picture-class="responsive-picture"
 />
 
-À l'âge de dix ans à peine, je me suis retrouvé sous les projecteurs éblouissants d'un plateau de jeu télévisé. C'est un souvenir qui me fait sourire à chaque fois que j'y repense. L'aventure a commencé lorsque ma mère a passé les auditions pour l'émission *The $20,000 Pyramid*. Elle avait déjà passé avec succès trois entretiens ainsi que des simulations de jeu, et elle était sur le point d'être sélectionnée.
-C'est alors que l'imprévu s'est produit. Les producteurs l'ont prise à part pour lui faire une proposition intrigante : au lieu d'être associée à une célébrité comme le voulait la coutume, on lui a proposé de participer à une nouvelle émission intitulée *Junior Partner Pyramid*. Dans cette variante du jeu classique, un adulte faisait équipe avec son enfant. Sans la moindre hésitation, ma mère a accepté, et c'est ainsi qu'a débuté mon « entraînement ».
+À l'âge de dix ans à peine, je me suis retrouvé sous les projecteurs éblouissants d'un plateau de jeu télévisé. C'est un souvenir qui me fait souqasdddqqqqasdddrire à chaque fois que j'y repense. L'aventure a commencé lorsque ma mère a passé les auditions pour l'émission _The $20,000 Pyramid_. Elle avait déjà passé avec succès trois entretiens ainsi que des simulations de jeu, et elle était sur le point d'être sélectionnée.
+C'est alors que l'imprévu s'est produit. Les producteurs l'ont prise à part pour lui faire une proposition intrigante : au lieu d'être associée à une célébrité comme le voulait la coutume, on lui a proposé de participer à une nouvelle émission intitulée _Junior Partner Pyramid_. Dans cette variante du jeu classique, un adulte faisait équipe avec son enfant. Sans la moindre hésitation, ma mère a accepté, et c'est ainsi qu'a débuté mon « entraînement ».
 
 <cloudinary-picture
   src="assets/images/Contesttantform"
@@ -32,7 +32,7 @@ C'est alors que l'imprévu s'est produit. Les producteurs l'ont prise à part po
   breakpoints="200, 531, 768, 938, 1167, 1410, 1585, 1756, 1917, 2000"
   picture-class="responsive-picture"
 />
- 
+
 Le jour de l'enregistrement, j'étais une véritable boule de nerfs. Mais la légende [Dick Clark](https://en.wikipedia.org/wiki/Dick_Clark) en personne nous a mis à l'aise, nous conseillant de nous détendre et de rester nous-mêmes. Sous les projecteurs brûlants du plateau, nous nous sommes préparés pour l'émission, allant même jusqu'à apporter une tenue de rechange pour « faire semblant » d'être le lendemain au cas où nous gagnerions.
 
 La compétition fut rude et nous avons fini par perdre, mais l'expérience fut inoubliable. Dick Clark a pris le temps de discuter avec nous ; sa chaleur humaine et ses encouragements ont fait de cette aventure une victoire en soi.

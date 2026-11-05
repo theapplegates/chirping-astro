@@ -28,7 +28,7 @@ Markdown authoring also includes two custom Sätteri code-block transforms:
 | Languages | TypeScript (strict), Astro, MDX, CSS |
 | Locales | User-defined. Ships with `en` + `fr`; any locale can be added or set as default |
 | Default locale | Always served at the URL root (no prefix). Configurable in `src/config.ts` |
-| Search | Pagefind (static index, built post `astro build`) |
+| Search | OramaJS (static index, built post `astro build`) |
 | Comments | Giscus (optional, GitHub Discussions backed) |
 | Math | KaTeX (opt-in per post via `math: true` frontmatter) |
 | CI | GitHub Actions — `deploy.yml` (Pages) + `pr-checks.yml` |
@@ -89,6 +89,9 @@ Markdown authoring also includes two custom Sätteri code-block transforms:
     │   └── <locale>/          # One sub-folder per non-default locale (mirrors root)
     ├── styles/global.css      # Tailwind v4 entry + daisyUI themes + CSS tokens
     └── utils/
+        ├── search.ts          # Lazy Orama client, shared by modal + search page
+        ├── search-schema.ts   # Shared index schema
+        ├── search-text.ts     # Safe term highlighting + context excerpts
         ├── posts.ts           # Collection helpers: sort, filter, paginate
         ├── reading-time.ts
         ├── seo.ts
@@ -279,7 +282,7 @@ every step is complete, which is by design.
 7. **`src/pages/de/rss.xml.ts`** — Add an RSS endpoint for the new locale,
    mirroring `src/pages/fr/rss.xml.ts`.
 
-The sitemap, Pagefind search index, language switcher, and `hreflang` tags all
+The sitemap, OramaJS search index, language switcher, and `hreflang` tags all
 pick up the new locale automatically from `SITE.locales`.
 
 ---
@@ -328,7 +331,7 @@ helper reads from `config.ts` at runtime this step may be automatic — verify i
 
 #### 8. `.env` / hosting environment
 Update `SITE_URL` if the canonical domain changes, and rebuild to regenerate
-the Pagefind index and OG images.
+the OramaJS index and OG images.
 
 #### 9. Verify
 ```bash
@@ -423,7 +426,7 @@ The site is mostly static HTML. These are the only client-side islands:
 |--------|------|-----------|
 | ThemeToggle | `islands/ThemeToggle.astro` | Every page (tiny) |
 | LanguageSwitcher | `islands/LanguageSwitcher.astro` | Pure CSS — no JS |
-| SearchButton | `islands/SearchButton.astro` | Pagefind lazy-loaded on modal open |
+| SearchButton | `islands/SearchButton.astro` | OramaJS lazy-loaded on modal open |
 | TableOfContents | `islands/TableOfContents.astro` | Posts with headings + `toc: true` |
 | BackToTop | `islands/BackToTop.astro` | All pages (tiny) |
 | Giscus | `islands/Giscus.astro` | Posts with `comments: true` |
@@ -438,14 +441,14 @@ it must remain an `is:inline` script.
 
 ```bash
 bun run dev            # Dev server at http://localhost:4321
-bun run build          # astro build → pagefind index (output: dist/)
+bun run build          # astro build → Orama search indexes (output: dist/)
 bun run preview        # Serve dist/ locally (search works here, not in dev)
 bun run test           # Run tests with Bun's built-in test runner
 bun run typecheck      # astro check (TypeScript + Astro types)
 bun run lint           # ESLint — zero warnings allowed
 bun run format         # Prettier write (auto-fixes formatting in place)
 bun run format:check   # Prettier check — exits non-zero if any file is unformatted (CI gate)
-bun run pagefind       # Re-run Pagefind only (after astro build)
+bun run search:index       # Regenerate Orama indexes (after astro build)
 ```
 
 > `bun run format` and `bun run format:check` are complementary:
@@ -453,7 +456,7 @@ bun run pagefind       # Re-run Pagefind only (after astro build)
 > was missed before committing. Both must agree — `format:check` is what CI
 > enforces.
 
-> ⚠️ **Pagefind search does not work in `bun run dev`.**
+> ⚠️ **OramaJS search does not work in `bun run dev`.**
 > Always run `bun run build` then `bun run preview` to test search.
 
 ---
@@ -493,6 +496,17 @@ These are **CI-only**. Never set them in `.env` for local builds.
   `xhtml:link rel="alternate"` for every translated variant.
 
 ---
+
+### Orama indexing
+
+`scripts/build-search-index.ts` reads rendered `data-search-document` articles and
+`data-search-content` bodies after Astro builds. It writes serialized indexes to
+`dist/_orama/<locale>.json`. Unlisted posts omit the document marker; drafts and
+noindex pages are excluded. Ignore regions with `data-search-ignore` (legacy
+`data-pagefind-ignore` is accepted). English and French tokenizers are selected
+from HTML language; additional languages currently fall back to English.
+`src/utils/search.ts` lazy-loads and caches each index. `search-text.ts` escapes
+all content before adding term highlights in titles and excerpts for both UIs.
 
 ## Common Agent Tasks
 
@@ -569,7 +583,7 @@ Edit the keydown handler at the bottom of `src/components/islands/SearchButton.a
 | **Changing default locale is atomic** | Requires coordinated changes to `config.ts`, `astro.config.mjs`, root `src/pages/`, `src/i18n/utils.ts`, and RSS endpoints. Partial changes cause broken URLs. |
 | **Locale inferred from path** | Don't add `lang:` to frontmatter unless intentionally overriding. |
 | **Every locale needs all 7 pieces** | Route folder, content posts folder, content pages folder, i18n UI strings, `htmlLang`, `localeLabel`, `formatDate` entry, and an RSS endpoint. |
-| **Pagefind needs a build** | Search is not available in `bun run dev`. Run `bun run build` + `bun run preview`. |
+| **OramaJS needs a build** | Search is not available in `bun run dev`. Run `bun run build` + `bun run preview`. |
 | **Zero ESLint warnings** | `bun run lint` must pass with no warnings before merging. |
 | **Math is opt-in** | Never load KaTeX globally — use `math: true` frontmatter per post. |
 | **Alert classes need safelisting** | `satteri-alert` emits classes at build-time HTML generation. Keep `@source inline(...)` safelist entries in `src/styles/global.css` aligned with supported alert variants. |
@@ -588,7 +602,7 @@ Edit the keydown handler at the bottom of `src/components/islands/SearchButton.a
 
 | Symptom | Fix |
 |---------|-----|
-| Search modal: "index not available" | Run `bun run build`. Pagefind index only exists in `dist/`. |
+| Search modal: "index not available" | Run `bun run build`. Orama indexes only exist in `dist/_orama/`. |
 | Theme flashes on first paint | Confirm the `is:inline` script is present in `BaseLayout.astro`. |
 | Giscus not rendering | Verify `PUBLIC_GISCUS_*` env vars and that Discussions are enabled in the repo. |
 | Giscus theme stuck | Theme attribute must be `chirpy-light` or `chirpy-dark`. Update `Giscus.astro` if renamed. |
@@ -617,7 +631,8 @@ Edit the keydown handler at the bottom of `src/components/islands/SearchButton.a
 | `astro-expressive-code` | latest | Syntax-highlighted code blocks |
 | `@iconify/utils` | latest | Build-time icon resolution for `satteri-alert` |
 | `@nullpinter/satteri-katex` | latest | LaTeX math support |
-| `pagefind` | latest | Static search index |
+| `@orama/orama` | 3.x | Browser search + serialized per-language indexes |
+| `node-html-parser` | latest | Extract rendered article text for search |
 | `@astrojs/sitemap` | latest | Sitemap generation |
 | `@astrojs/mdx` | latest | MDX support |
 | `@fontsource/source-sans-3` | latest | Source Sans 3 files used by Astro Fonts API local provider |
@@ -781,4 +796,4 @@ conventions:
 
 ---
 
-*This file was last updated on 2026-07-02.*
+*This file was last updated on 2026-11-05.*

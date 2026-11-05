@@ -15,7 +15,7 @@ toc: true
 Hello, and welcome. **Chirping Astro** is a single-template, multilingual
 Astro v7 theme inspired by [Chirpy](https://chirpy.cotes.page/) and rebuilt
 from scratch with a strict TypeScript codebase, Tailwind v4, daisyUI v5,
-MDX, Pagefind and Giscus.
+MDX, OramaJS and Giscus.
 
 This post is the front door. Every other post on this site is a focused,
 feature-specific tutorial — start with whichever one matches what you want
@@ -35,7 +35,7 @@ to learn first.
 - **LaTeX math** via KaTeX, pre-rendered at build time with **zero
   client JavaScript** — and the stylesheet only loads on pages that
   opt in.
-- **Pagefind search** — a header modal with `/` and `Cmd/Ctrl+K`
+- **OramaJS search** — a header modal with `/` and `Cmd/Ctrl+K`
   shortcuts, plus a dedicated `/search/` page.
 - **Giscus comments** wired to GitHub Discussions, theme- and
   locale-synced, with a per-post override.
@@ -63,7 +63,7 @@ image; and so on.
 | LaTeX math            | [LaTeX math with KaTeX](/posts/latex-math-with-katex)                           |
 | MDX components        | [MDX components & callouts](/posts/mdx-components-and-callouts)                 |
 | i18n                  | [Bilingual content & i18n](/posts/i18n-bilingual-content)                       |
-| Search                | [Search with Pagefind](/posts/search-with-pagefind)                             |
+| Search                | [Search with OramaJS](/posts/search-with-pagefind)                              |
 | Comments              | [Comments with Giscus](/posts/comments-with-giscus)                             |
 | Theming               | [Theming & dark mode](/posts/theming-and-dark-mode)                             |
 | Featured images       | [Featured images & media](/posts/featured-images-and-media)                     |

@@ -2,9 +2,7 @@
 /**
  * Header search trigger + custom search modal.
  *
- * Uses Pagefind's HEADLESS API (`/_pagefind/pagefind.js`) instead of the
- * bundled `pagefind-ui` widget so we can render results with our own
- * Tailwind / daisyUI markup. None of Pagefind's CSS is loaded.
+ * Uses a lazy-loaded OramaJS index and our Tailwind / daisyUI result markup.
  *
  * UX:
  *   - Header button + global `/` and `Cmd/Ctrl+K` shortcuts open the modal.
@@ -24,7 +22,7 @@ interface Props {
 
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-const pagefindScript = withBase('/_pagefind/pagefind.js');
+const searchIndex = withBase(`/_orama/${locale}.json`);
 
 const i18n = {
   placeholder: t('search.placeholder'),
@@ -58,7 +56,7 @@ const i18n = {
   class="modal modal-top sm:modal-middle"
   aria-label={t('search.title')}
   data-i18n={JSON.stringify(i18n)}
-  data-pagefind-script={pagefindScript}
+  data-search-index={searchIndex}
 >
   <div
     class="modal-box bg-base-100 border-base-300 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden border p-0 shadow-2xl sm:rounded-xl"
@@ -141,64 +139,15 @@ const i18n = {
 </dialog>
 
 <script>
-  interface PagefindSearchData {
-    url: string;
-    excerpt?: string;
-    meta?: { title?: string };
-  }
+  import { escapeHtml, highlightSearchTerm, createExcerpt } from '~/utils/search-text';
+  import type { SearchResult } from '~/utils/search';
 
-  interface PagefindResult {
-    data: () => Promise<PagefindSearchData>;
-  }
-
-  interface PagefindModule {
-    init?: () => Promise<void>;
-    // eslint-disable-next-line no-unused-vars
-    search: (term: string) => Promise<{ results: PagefindResult[] } | null>;
-  }
-
-  let pagefindModule: PagefindModule | null = null;
-  let loadPromise: Promise<PagefindModule> | null = null;
-  /** Most recent search token — used to ignore stale async resolutions. */
   let searchToken = 0;
   let highlightIdx = -1;
   let resultLinks: HTMLElement[] = [];
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  let PAGEFIND_SCRIPT: string | undefined;
+  let SEARCH_INDEX: string;
   let I18N: Record<string, string> = {};
-
-  function loadPagefind() {
-    if (pagefindModule) return Promise.resolve(pagefindModule);
-    if (loadPromise) return loadPromise;
-    loadPromise = import(/* @vite-ignore */ PAGEFIND_SCRIPT as string)
-      .then(async (mod) => {
-        if (typeof mod.init === 'function') await mod.init();
-        pagefindModule = mod;
-        return mod;
-      })
-      .catch((err) => {
-        console.error('Failed to load Pagefind', err);
-        loadPromise = null;
-        throw err;
-      });
-    return loadPromise;
-  }
-
-  function escapeHtml(s: string) {
-    return String(s)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
-
-  /** Pagefind returns excerpts already wrapped in `<mark>` tags. We escape
-   *  everything else and re-allow only the canonical `<mark>` tokens. */
-  function sanitizeExcerpt(html: string) {
-    const escaped = escapeHtml(html ?? '');
-    return escaped.replaceAll('&lt;mark&gt;', '<mark>').replaceAll('&lt;/mark&gt;', '</mark>');
-  }
 
   function renderState(container: HTMLElement, html: string) {
     container.innerHTML = html;
@@ -257,15 +206,15 @@ const i18n = {
     }
   }
 
-  function renderResults(container: HTMLElement, results: PagefindSearchData[]) {
+  function renderResults(container: HTMLElement, results: SearchResult[], term: string) {
     const count = results.length;
     const label = count === 1 ? I18N.resultsCountOne : I18N.resultsCount;
 
     const items = results
       .map((r, i) => {
-        const title = escapeHtml(r.meta?.title || r.url);
+        const title = highlightSearchTerm(r.title || r.url, term);
         const crumb = escapeHtml(formatCrumb(r.url));
-        const excerpt = sanitizeExcerpt(r.excerpt || '');
+        const excerpt = highlightSearchTerm(createExcerpt(r.content, term), term);
         return `<li>
           <a
             data-search-result-link
@@ -325,12 +274,14 @@ const i18n = {
     const input = document.querySelector<HTMLInputElement>('[data-search-input]');
     const clearBtn = document.querySelector<HTMLButtonElement>('[data-search-clear]');
     const results = document.querySelector<HTMLElement>('[data-search-results]');
-    if (!dialog || !input || !results || !clearBtn) return;
+    if (!dialog || !input || !results || !clearBtn || dialog.dataset.initialized) return;
+    dialog.dataset.initialized = 'true';
 
-    PAGEFIND_SCRIPT = dialog.dataset.pagefindScript;
+    SEARCH_INDEX = dialog.dataset.searchIndex!;
     I18N = JSON.parse(dialog.dataset.i18n || '{}');
 
     function reset() {
+      clearTimeout(debounceTimer);
       input!.value = '';
       clearBtn!.classList.add('hidden');
       clearBtn!.classList.remove('inline-flex');
@@ -341,20 +292,18 @@ const i18n = {
     async function runSearch(term: string) {
       const myToken = ++searchToken;
       try {
-        const pf = await loadPagefind();
+        const { searchSite } = await import('~/utils/search');
         if (myToken !== searchToken) return;
         renderSearching(results!);
-        const search = await pf.search(term);
+        const data = await searchSite(SEARCH_INDEX, term, 12);
         if (myToken !== searchToken) return;
-        if (!search || !search.results || search.results.length === 0) {
+        if (!data.length) {
           renderNoResults(results!, term);
           return;
         }
-        const top = search.results.slice(0, 12);
-        const data = await Promise.all(top.map((r: PagefindResult) => r.data()));
-        if (myToken !== searchToken) return;
-        renderResults(results!, data);
+        renderResults(results!, data, term);
       } catch (err) {
+        if (myToken !== searchToken) return;
         console.error(err);
         renderState(
           results!,
@@ -373,6 +322,7 @@ const i18n = {
         clearBtn!.classList.remove('inline-flex');
       }
       clearTimeout(debounceTimer);
+      searchToken++;
       if (!term) {
         renderIdle(results!);
         return;
@@ -406,8 +356,10 @@ const i18n = {
     async function openSearch() {
       if (typeof dialog!.showModal === 'function') dialog!.showModal();
       else dialog!.setAttribute('open', '');
-      // Pre-load Pagefind so the first keystroke is instant.
-      loadPagefind().catch(() => {});
+      // Pre-load Orama so the first keystroke is instant.
+      import('~/utils/search')
+        .then(({ loadSearchIndex }) => loadSearchIndex(SEARCH_INDEX))
+        .catch(() => {});
       requestAnimationFrame(() => input!.focus());
     }
 

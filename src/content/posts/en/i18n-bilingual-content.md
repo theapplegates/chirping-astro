@@ -153,9 +153,9 @@ The codebase was designed to make this a five-step task. Adding `de`:
 That's the entire ceremony. The sitemap, RSS, search, sidebar widgets,
 and language switcher all pick up the new locale automatically.
 
-## Pagefind across locales
+## OramaJS across locales
 
-Pagefind respects the `lang` attribute on `<html>`, which the theme
+OramaJS respects the `lang` attribute on `<html>`, which the theme
 sets per-page from the inferred locale. The header search modal filters
 results to the **current locale** so French readers don't accidentally
 get English hits.

@@ -36,8 +36,6 @@ Thumbs.db
 bun.lockb
 .bun-cache/
 
-# pagefind cache
-pagefind/
 
 # misc
 *.log

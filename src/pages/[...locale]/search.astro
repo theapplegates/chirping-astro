@@ -13,7 +13,7 @@ export function getStaticPaths() {
 }
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-const pagefindScript = withBase('/_pagefind/pagefind.js');
+const searchIndex = withBase(`/_orama/${locale}.json`);
 
 const i18n = {
   placeholder: t('search.placeholder'),
@@ -41,7 +41,7 @@ const i18n = {
     id="search-wrapper"
     class="bg-base-100 border-base-300 overflow-hidden rounded-xl border shadow-sm"
     data-i18n={JSON.stringify(i18n)}
-    data-pagefind-script={pagefindScript}
+    data-search-index={searchIndex}
   >
     <div class="border-base-300 flex items-center gap-3 border-b px-4 py-3 sm:px-5 sm:py-3.5">
       <Icon
@@ -85,58 +85,14 @@ const i18n = {
 </BaseLayout>
 
 <script>
-  interface PagefindSearchData {
-    url: string;
-    excerpt?: string;
-    meta?: { title?: string };
-  }
+  import { escapeHtml, highlightSearchTerm, createExcerpt } from '~/utils/search-text';
+  import type { SearchResult } from '~/utils/search';
 
-  interface PagefindResult {
-    data: () => Promise<PagefindSearchData>;
-  }
-
-  interface PagefindModule {
-    init?: () => Promise<void>;
-    // eslint-disable-next-line no-unused-vars
-    search: (term: string) => Promise<{ results: PagefindResult[] } | null>;
-  }
-
-  let pagefindModule: PagefindModule | null = null;
-  let loadPromise: Promise<PagefindModule> | null = null;
   let searchToken = 0;
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  let PAGEFIND_SCRIPT: string | undefined;
+  let SEARCH_INDEX: string;
   let I18N: Record<string, string> = {};
 
-  function loadPagefind() {
-    if (pagefindModule) return Promise.resolve(pagefindModule);
-    if (loadPromise) return loadPromise;
-    loadPromise = import(/* @vite-ignore */ PAGEFIND_SCRIPT as string)
-      .then(async (mod) => {
-        if (typeof mod.init === 'function') await mod.init();
-        pagefindModule = mod;
-        return mod;
-      })
-      .catch((err) => {
-        loadPromise = null;
-        throw err;
-      });
-    return loadPromise;
-  }
-
-  function escapeHtml(s: string) {
-    return String(s)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
-  function sanitizeExcerpt(html: string) {
-    return escapeHtml(html ?? '')
-      .replaceAll('&lt;mark&gt;', '<mark>')
-      .replaceAll('&lt;/mark&gt;', '</mark>');
-  }
   function formatCrumb(url: string) {
     try {
       const u = new URL(url, window.location.origin);
@@ -152,9 +108,10 @@ const i18n = {
     const input = document.querySelector<HTMLInputElement>('[data-search-page-input]');
     const clearBtn = document.querySelector<HTMLButtonElement>('[data-search-page-clear]');
     const results = document.querySelector<HTMLElement>('[data-search-page-results]');
-    if (!wrapper || !input || !clearBtn || !results) return;
+    if (!wrapper || !input || !clearBtn || !results || wrapper.dataset.initialized) return;
+    wrapper.dataset.initialized = 'true';
 
-    PAGEFIND_SCRIPT = wrapper.dataset.pagefindScript;
+    SEARCH_INDEX = wrapper.dataset.searchIndex!;
     I18N = JSON.parse(wrapper.dataset.i18n || '{}');
 
     function setIdle() {
@@ -184,14 +141,14 @@ const i18n = {
         </p>
       </div>`;
     }
-    function setResults(data: PagefindSearchData[]) {
+    function setResults(data: SearchResult[], term: string) {
       const count = data.length;
       const label = count === 1 ? I18N.resultsCountOne : I18N.resultsCount;
       const items = data
         .map((r) => {
-          const title = escapeHtml(r.meta?.title || r.url);
+          const title = highlightSearchTerm(r.title || r.url, term);
           const crumb = escapeHtml(formatCrumb(r.url));
-          const excerpt = sanitizeExcerpt(r.excerpt || '');
+          const excerpt = highlightSearchTerm(createExcerpt(r.content, term), term);
           return `<li>
             <a href="${escapeHtml(r.url)}" class="search-result group block px-4 py-3 sm:px-5">
               <div class="text-base-content/45 group-hover:text-primary/70 flex items-center gap-1.5 text-[0.7rem] tracking-wide uppercase">
@@ -213,20 +170,18 @@ const i18n = {
     async function runSearch(term: string) {
       const myToken = ++searchToken;
       try {
-        const pf = await loadPagefind();
+        const { searchSite } = await import('~/utils/search');
         if (myToken !== searchToken) return;
         setSearching();
-        const search = await pf.search(term);
+        const data = await searchSite(SEARCH_INDEX, term, 25);
         if (myToken !== searchToken) return;
-        if (!search?.results?.length) {
+        if (!data.length) {
           setNoResults(term);
           return;
         }
-        const top = search.results.slice(0, 25);
-        const data = await Promise.all(top.map((r: PagefindResult) => r.data()));
-        if (myToken !== searchToken) return;
-        setResults(data);
+        setResults(data, term);
       } catch (err) {
+        if (myToken !== searchToken) return;
         console.error(err);
         results!.innerHTML = `<p class="text-error px-5 py-6 text-sm">Search index not available.</p>`;
       }
@@ -242,8 +197,8 @@ const i18n = {
         clearBtn!.classList.remove('inline-flex');
       }
       clearTimeout(debounceTimer);
+      searchToken++;
       if (!term) {
-        searchToken++;
         setIdle();
         return;
       }
@@ -251,6 +206,7 @@ const i18n = {
     });
 
     clearBtn.addEventListener('click', () => {
+      clearTimeout(debounceTimer);
       input!.value = '';
       clearBtn!.classList.add('hidden');
       clearBtn!.classList.remove('inline-flex');
@@ -259,8 +215,10 @@ const i18n = {
       input!.focus();
     });
 
-    // Pre-warm Pagefind so the first keystroke is instant.
-    loadPagefind().catch(() => {});
+    // Pre-warm Orama so the first keystroke is instant.
+    import('~/utils/search')
+      .then(({ loadSearchIndex }) => loadSearchIndex(SEARCH_INDEX))
+      .catch(() => {});
 
     // Pre-fill from `?q=...`.
     const q = new URL(window.location.href).searchParams.get('q');

@@ -15,7 +15,7 @@ toc: true
 Bonjour, et bienvenue. **Chirping Astro** est un thème mono-template
 multilingue inspiré de [Chirpy](https://chirpy.cotes.page/), réécrit
 intégralement en TypeScript strict, avec Tailwind v4, daisyUI v5, MDX,
-Pagefind et Giscus.
+OramaJS et Giscus.
 
 Cet article est la porte d'entrée. Tous les autres articles de ce site
 sont des tutoriels ciblés sur une seule fonctionnalité — commencez par
@@ -36,7 +36,7 @@ celui qui correspond à ce que vous voulez apprendre en premier.
 - **Mathématiques LaTeX** via KaTeX, pré-rendues à la compilation avec
   **zéro JavaScript côté client** — la feuille de style ne se charge
   que sur les pages qui en font la demande.
-- **Recherche Pagefind** — une modale dans l'en-tête avec les
+- **Recherche OramaJS** — une modale dans l'en-tête avec les
   raccourcis `/` et `Cmd/Ctrl+K`, plus une page dédiée `/fr/search/`.
 - **Commentaires Giscus** branchés sur GitHub Discussions, synchronisés
   avec le thème et la locale, avec un override par article.
@@ -66,7 +66,7 @@ arbore une image à la une, etc.
 | Mathématiques LaTeX    | [Mathématiques LaTeX avec KaTeX](/fr/posts/latex-math-with-katex)           |
 | Composants MDX         | [Composants MDX & callouts](/fr/posts/mdx-components-and-callouts)          |
 | i18n                   | [Contenu bilingue & i18n](/fr/posts/i18n-bilingual-content)                 |
-| Recherche              | [Recherche avec Pagefind](/fr/posts/search-with-pagefind)                   |
+| Recherche              | [Recherche avec OramaJS](/fr/posts/search-with-pagefind)                    |
 | Commentaires           | [Commentaires avec Giscus](/fr/posts/comments-with-giscus)                  |
 | Thème                  | [Thème & mode sombre](/fr/posts/theming-and-dark-mode)                      |
 | Images à la une        | [Images à la une & médias](/fr/posts/featured-images-and-media)             |

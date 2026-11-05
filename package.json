@@ -2,7 +2,7 @@
   "name": "chirping-astro",
   "version": "1.2.0",
   "type": "module",
-  "description": "A Chirpy-inspired, single-template, multilingual Astro v7 theme with Tailwind v4, daisyUI, MDX, Pagefind, and Giscus.",
+  "description": "A Chirpy-inspired, single-template, multilingual Astro v7 theme with Tailwind v4, daisyUI, MDX, OramaJS, and Giscus.",
   "license": "MIT",
   "private": false,
   "engines": {
@@ -11,12 +11,10 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build && bun run pagefind",
+    "build": "astro build && bun run search:index",
     "preview": "astro preview",
     "serve": "bun run build && bun preview",
     "astro": "astro",
-    "pagefind": "pagefind --site dist --output-subdir _pagefind",
-    "postbuild": "echo \"Pagefind index generated in dist/_pagefind\"",
     "typecheck": "astro check",
     "test": "bun test",
     "lint": "eslint . --max-warnings=0",
@@ -24,7 +22,8 @@
     "format": "prettier --write \"**/*.{astro,ts,tsx,js,jsx,md,mdx,css,json}\"",
     "format:check": "prettier --check \"**/*.{astro,ts,tsx,js,jsx,md,mdx,css,json}\"",
     "cloudinary:breakpoints": "NODE_OPTIONS=--max-old-space-size=8192 node --env-file=.env scripts/cloudinary-breakpoints.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "search:index": "bun scripts/build-search-index.ts"
   },
   "lint-staged": {
     "*.{astro,ts,tsx,js,jsx}": [
@@ -41,6 +40,7 @@
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
     "@nullpinter/satteri-katex": "^0.1.2",
+    "@orama/orama": "^3.1.18",
     "astro": "7.2.4",
     "astro-expressive-code": "^0.44.0",
     "astro-icon": "^1.1.5",
@@ -69,7 +69,7 @@
     "husky": "^9.1.7",
     "katex": "^0.18.1",
     "lint-staged": "^17.0.8",
-    "pagefind": "^1.5.2",
+    "node-html-parser": "^9.0.6",
     "prettier": "^3.9.4",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
@@ -86,7 +86,7 @@
     "tailwindcss",
     "daisyui",
     "mdx",
-    "pagefind",
+    "orama",
     "giscus",
     "i18n",
     "blog"

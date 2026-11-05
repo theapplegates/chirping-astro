@@ -171,9 +171,9 @@ C'est tout le cérémonial. Le sitemap, le RSS, la recherche, les
 widgets de la barre latérale et le sélecteur de langue captent la
 nouvelle locale automatiquement.
 
-## Pagefind à travers les locales
+## OramaJS à travers les locales
 
-Pagefind respecte l'attribut `lang` sur `<html>`, que le thème
+OramaJS respecte l'attribut `lang` sur `<html>`, que le thème
 définit par page depuis la locale inférée. La modale de recherche
 filtre les résultats à la **locale courante**, donc les lecteurs
 français n'ont pas accidentellement de résultats anglais.

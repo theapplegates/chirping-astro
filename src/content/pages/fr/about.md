@@ -32,7 +32,7 @@ calme comptent plus que les animations et les espaces publicitaires.
   des matières automatique, et un composant `<Callout>` prêt à l'emploi.
 - **Mathématiques LaTeX** — prise en charge KaTeX optionnelle par
   article via `math: true`.
-- **Recherche instantanée** — [Pagefind](https://pagefind.app/) génère
+- **Recherche instantanée** — [OramaJS](https://orama.com/products/oramajs) génère
   un index statique à la compilation ; l'overlay de recherche se
   charge à la demande.
 - **Commentaires** — intégration [Giscus](https://giscus.app/) basée
@@ -49,7 +49,7 @@ calme comptent plus que les animations et les espaces publicitaires.
 - [**Tailwind CSS v4**](https://tailwindcss.com/) via le plugin
   `@tailwindcss/vite`, avec [**daisyUI v5**](https://daisyui.com/) pour
   le théming
-- [**Pagefind**](https://pagefind.app/) pour la recherche statique
+- [**OramaJS**](https://orama.com/products/oramajs) pour la recherche statique
 - [**Giscus**](https://giscus.app/) pour les commentaires
 - [**Shiki**](https://shiki.style/), [**KaTeX**](https://katex.org/),
   et les icônes [**Lucide**](https://lucide.dev/)

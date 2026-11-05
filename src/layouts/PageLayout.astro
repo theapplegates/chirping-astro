@@ -32,12 +32,12 @@ const articleClass = SITE.boxedArticles
 <BaseLayout title={title} description={description} crumbs={crumbs ?? [{ label: title }]}>
   {math && MathStylesComponent && <MathStylesComponent />}
   {mermaid && MermaidComponent && <MermaidComponent />}
-  <article class={articleClass}>
+  <article class={articleClass} data-search-document>
     <header class="mb-6">
       <h1 class="text-3xl leading-tight font-extrabold tracking-tight">{title}</h1>
       {description && <p class="text-base-content/70 mt-2">{description}</p>}
     </header>
-    <div class="prose-chirpy max-w-none">
+    <div class="prose-chirpy max-w-none" data-search-content>
       <slot />
     </div>
   </article>

@@ -3,7 +3,7 @@
 # Chirping Astro
 
 A Chirpy-inspired, single-template, multilingual **Astro v7** theme
-built with **Tailwind CSS v4**, **daisyUI v5**, **MDX**, **Pagefind**
+built with **Tailwind CSS v4**, **daisyUI v5**, **MDX**, **OramaJS**
 search, **Giscus** comments, and **KaTeX** for math.
 
 It targets technical writers who want a fast, accessible, statically
@@ -38,7 +38,7 @@ authoring experience — without writing your own theme from scratch.
 8. [Code blocks (Expressive Code)](#code-blocks-expressive-code)
 9. [LaTeX math (KaTeX)](#latex-math-katex)
 10. [i18n](#i18n)
-11. [Pagefind search](#pagefind-search)
+11. [OramaJS search](#oramajs-search)
 12. [Giscus comments](#giscus-comments)
 13. [SEO, RSS, sitemap](#seo-rss-sitemap)
 14. [Hydration footprint](#hydration-footprint)
@@ -68,7 +68,7 @@ authoring experience — without writing your own theme from scratch.
   loaded **only on pages that opt in** with `math: true` in
   frontmatter, so non-math pages stay lean
 - **Mermaid diagrams** natively rendered via Sätteri (`mermaid` frontmatter). The client library is bundled and injected only on pages that need it, keeping the rest of the site zero-JS
-- **Pagefind** static search (modal + dedicated page, lazy-loaded,
+- **OramaJS** static search (modal + dedicated page, lazy-loaded,
   locale-filtered)
 - **Giscus** comments synced with theme and locale, per-post
   overrideable, with a friendly setup notice when not configured
@@ -125,7 +125,7 @@ bun install
 ```
 
 This installs Astro, the daisyUI v5 plugin, MDX, Expressive Code,
-Sätteri plugins, Pagefind, KaTeX, and the dev tooling.
+Sätteri plugins, OramaJS, KaTeX, and the dev tooling.
 
 ### 3. Configure environment variables
 
@@ -260,8 +260,7 @@ works for content, components, and CSS.
 bun run build
 ```
 
-This runs `astro build` and then `pagefind --site dist
---output-subdir _pagefind`, generating the static search index. The
+This runs `astro build` and then `bun run search:index`, generating the Orama search indexes. The
 output is in `dist/`.
 
 ### 8. Preview the production build
@@ -705,39 +704,36 @@ all pick up the new locale automatically.
 
 ---
 
-## Pagefind search
+## OramaJS search
 
-### How it works
+The site uses the free, open-source [OramaJS](https://orama.com/products/oramajs)
+library. Search runs locally in the browser and requires no account or API key.
 
-- `bun run build` runs `astro build` and then
-  `pagefind --site dist --output-subdir _pagefind`.
-- Pagefind crawls every static `.html` page Astro emitted and writes
-  the index + client bundle to `dist/_pagefind/`.
-- The header search button (`SearchButton.astro`) lazy-loads
-  `/_pagefind/pagefind.js` only when the user opens the modal.
-- A dedicated full-page experience lives at `/search/` and
-  `/fr/search/`.
-
-### Indexing tips
-
-- Pagefind reads the page's `<main>` block by default. The theme's
-  `BaseLayout` wraps the content in `<main id="main">` so this just
-  works.
-- Add `data-pagefind-ignore` on any element you want excluded.
-- Mark a chunk as the primary section with `data-pagefind-body` if
-  you want to override the default `<main>` heuristic.
-- Per-page filters can be added with `data-pagefind-filter="..."`.
+- `bun run build` runs Astro, then `bun run search:index` to generate one
+  serialized search index per language in `dist/_orama/`.
+- The indexer reads rendered post and page content, including MDX. Drafts,
+  unlisted posts, navigation, and comments are excluded.
+- The modal lazy-loads Orama and the current language's index when opened.
+  The dedicated `/search/` page uses the same engine and supports `?q=...`.
+- Titles receive a ranking boost. Matching search terms are highlighted in
+  titles and context excerpts using safe `<mark>` tags in both search views.
+- `/` or `Cmd/Ctrl+K` opens the modal; arrows select a result and Enter opens it.
+- Search requires `bun run build` followed by `bun run preview`; the generated
+  index is not available in `bun run dev`.
 
 ### Customisation
 
-Open `src/components/islands/SearchButton.astro` to:
+- `src/utils/search.ts`: ranking and lazy index loading.
+- `src/utils/search-text.ts`: `highlightSearchTerm()` and context excerpts.
+- `scripts/build-search-index.ts`: rendered HTML extraction and index generation.
+- `SearchButton.astro` and `search.astro`: result markup and result limits.
+- `src/styles/global.css`: highlight colours for light and dark themes.
 
-- Change the keyboard shortcut (default: `/` and `Cmd/Ctrl+K`).
-- Replace the result row markup.
-- Add filter chips (the headless API exposes `pagefind.filters()`).
-
-The component uses Pagefind's headless API, not the bundled
-`pagefind-ui` package — no extra Pagefind CSS is shipped.
+The layouts mark searchable articles with `data-search-document` and their body
+with `data-search-content`. Add `data-search-ignore` to exclude a region;
+legacy `data-pagefind-ignore` attributes are also supported. Generated URLs
+preserve the deployment's base path. English and French use their respective
+Orama tokenizers; additional locales currently fall back to English tokenization.
 
 ---
 
@@ -816,7 +812,7 @@ islands and only when needed:
 | ------------------ | -------------------------------------------- |
 | `ThemeToggle`      | On every page (very small)                   |
 | `LanguageSwitcher` | Pure CSS dropdown — no JS                    |
-| `SearchButton`     | Pagefind script loaded on modal open only    |
+| `SearchButton`     | Orama index loaded on modal open only        |
 | `TableOfContents`  | Only on posts that have headings (and `toc`) |
 | `BackToTop`        | All pages, tiny                              |
 | `Giscus`           | Only on posts with comments enabled          |
@@ -828,16 +824,16 @@ copy-to-clipboard buttons.
 
 ## Bun scripts
 
-| Script              | What it does                               |
-| ------------------- | ------------------------------------------ |
-| `bun run dev`       | Astro dev server (`http://localhost:4321`) |
-| `bun run build`     | `astro build` then `pagefind --site dist`  |
-| `bun run preview`   | Preview the production build               |
-| `bun run typecheck` | `astro check` (TS + Astro)                 |
-| `bun run test`      | Run tests with Bun's built-in test runner  |
-| `bun run lint`      | ESLint (zero warnings allowed)             |
-| `bun run format`    | Prettier write                             |
-| `bun run pagefind`  | Re-run Pagefind only (after `astro build`) |
+| Script                 | What it does                                   |
+| ---------------------- | ---------------------------------------------- |
+| `bun run dev`          | Astro dev server (`http://localhost:4321`)     |
+| `bun run build`        | `astro build` then `bun run search:index`      |
+| `bun run preview`      | Preview the production build                   |
+| `bun run typecheck`    | `astro check` (TS + Astro)                     |
+| `bun run test`         | Run tests with Bun's built-in test runner      |
+| `bun run lint`         | ESLint (zero warnings allowed)                 |
+| `bun run format`       | Prettier write                                 |
+| `bun run search:index` | Regenerate Orama indexes (after `astro build`) |
 
 ---
 
@@ -879,7 +875,7 @@ favicons, images, internal links) gets prefixed correctly.
    (see step 3) and emit asset URLs prefixed with `/chirping-astro/`.
 
    This is wired into the existing helpers (`withBase`, `localizedPath`)
-   so every internal `<a>`, `<img>`, favicon, RSS link, Pagefind script,
+   so every internal `<a>`, `<img>`, favicon, RSS link, Orama index,
    and pagination URL automatically picks up the prefix. **Never write
    `<a href="/foo">` by hand** — always go through `localizedPath()`
    from `src/i18n/utils.ts`.
@@ -1115,7 +1111,7 @@ Per-post frontmatter takes precedence over the site-level default.
 
 | Symptom                                                           | Fix                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Search modal says "Search index not available"                    | Run `bun run build` once. The index lives at `dist/_pagefind/`. Search **does not** work in `bun run dev`.               |
+| Search modal says "Search index not available"                    | Run `bun run build` once. The index lives at `dist/_orama/`. Search **does not** work in `bun run dev`.                  |
 | Theme flashes wrong colour on first paint                         | Confirm the inline `<script is:inline>` block is present in `BaseLayout`.                                                |
 | Giscus does not render                                            | Check `PUBLIC_GISCUS_*` env vars; verify the giscus app is installed; verify Discussions are enabled in repo settings.   |
 | Giscus iframe theme stuck on light/dark                           | The site theme attribute must be `chirpy-light` or `chirpy-dark`. If you renamed the themes, also update `Giscus.astro`. |
@@ -1222,6 +1218,6 @@ against full site output.
 - [Chirpy Jekyll theme](https://chirpy.cotes.page/) for the original
   design language this theme is inspired by.
 - [Astro](https://astro.build), [Tailwind CSS](https://tailwindcss.com),
-  [daisyUI](https://daisyui.com), [Pagefind](https://pagefind.app),
+  [daisyUI](https://daisyui.com), [OramaJS](https://orama.com/products/oramajs),
   [Giscus](https://giscus.app), [Expressive Code](https://expressive-code.com),
   and [KaTeX](https://katex.org) for the building blocks.

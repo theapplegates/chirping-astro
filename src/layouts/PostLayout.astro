@@ -118,7 +118,7 @@ if (post.data.mermaid) {
     )
   }
 
-  <article class={articleClass}>
+  <article class={articleClass} data-search-document={post.data.unlisted ? undefined : true}>
     <header class="mb-8">
       <h1
         class="text-base-content text-3xl leading-tight font-extrabold tracking-tight sm:text-[2.25rem]"
@@ -186,7 +186,7 @@ if (post.data.mermaid) {
       )
     }
 
-    <div class="prose-chirpy max-w-none">
+    <div class="prose-chirpy max-w-none" data-search-content>
       <slot />
     </div>
 

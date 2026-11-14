@@ -269,8 +269,9 @@ output is in `dist/`.
 bun run preview
 ```
 
-This serves `dist/` exactly as a static host would. **Search will
-not work in `dev`** — only after `bun run build`. This is by design.
+This serves `dist/` exactly as a static host would. Search works here and in
+`bun run dev` after at least one `bun run build`; the dev server serves the
+index from the most recent build.
 
 ---
 
@@ -718,8 +719,9 @@ library. Search runs locally in the browser and requires no account or API key.
 - Titles receive a ranking boost. Matching search terms are highlighted in
   titles and context excerpts using safe `<mark>` tags in both search views.
 - `/` or `Cmd/Ctrl+K` opens the modal; arrows select a result and Enter opens it.
-- Search requires `bun run build` followed by `bun run preview`; the generated
-  index is not available in `bun run dev`.
+- Search uses the index from the most recent `bun run build`. In
+  `bun run dev`, that index is served from `dist/_orama/`, so rebuild after
+  adding or changing content to keep results fresh.
 
 ### Customisation
 
@@ -830,10 +832,15 @@ copy-to-clipboard buttons.
 | `bun run build`        | `astro build` then `bun run search:index`      |
 | `bun run preview`      | Preview the production build                   |
 | `bun run typecheck`    | `astro check` (TS + Astro)                     |
+| `bun run check`        | Typecheck, lint, format check, and tests       |
 | `bun run test`         | Run tests with Bun's built-in test runner      |
 | `bun run lint`         | ESLint (zero warnings allowed)                 |
 | `bun run format`       | Prettier write                                 |
+| `bun run format:check` | Prettier check                                 |
 | `bun run search:index` | Regenerate Orama indexes (after `astro build`) |
+
+Git hooks: `pre-commit` runs `lint-staged` on staged files, and `pre-push`
+runs `bun run check` (typecheck, lint, format check, and tests).
 
 ---
 
@@ -1111,7 +1118,7 @@ Per-post frontmatter takes precedence over the site-level default.
 
 | Symptom                                                           | Fix                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Search modal says "Search index not available"                    | Run `bun run build` once. The index lives at `dist/_orama/`. Search **does not** work in `bun run dev`.                  |
+| Search modal says "Search index not available"                    | Run `bun run build` once. The dev server serves the index from `dist/_orama/`; rebuild to refresh it.                    |
 | Theme flashes wrong colour on first paint                         | Confirm the inline `<script is:inline>` block is present in `BaseLayout`.                                                |
 | Giscus does not render                                            | Check `PUBLIC_GISCUS_*` env vars; verify the giscus app is installed; verify Discussions are enabled in repo settings.   |
 | Giscus iframe theme stuck on light/dark                           | The site theme attribute must be `chirpy-light` or `chirpy-dark`. If you renamed the themes, also update `Giscus.astro`. |

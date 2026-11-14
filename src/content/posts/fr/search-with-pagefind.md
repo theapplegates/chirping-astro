@@ -29,7 +29,8 @@ bun run preview
 Le build exécute Astro puis `bun run search:index`. Les index par langue sont
 écrits dans `dist/_orama/`. Les articles et pages sont extraits du HTML rendu,
 y compris MDX. Les brouillons, articles non répertoriés, menus et commentaires
-sont exclus. La recherche nécessite un build et ne fonctionne pas en mode dev.
+sont exclus. En mode dev, l'index du dernier build est servi : lancez donc un
+build avant d'utiliser la recherche et relancez-le après une modification de contenu.
 
 ## Personnalisation
 

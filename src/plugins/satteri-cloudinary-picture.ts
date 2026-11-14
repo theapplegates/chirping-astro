@@ -30,7 +30,7 @@ import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineHastPlugin } from 'satteri';
-import type { HastVisitorContext } from 'satteri';
+import type { HastContent, HastVisitorContext } from 'satteri';
 
 const FORMAT_ORDER = ['jxl', 'avif', 'webp'] as const;
 const MIME_TYPES: Record<string, string> = {
@@ -193,11 +193,11 @@ const parseRawTagAttributes = (rawHtml: string): Props | null => {
 
 /** MDX JSX props live in an `attributes` array of name/value pairs. */
 const extractMdxProps = (node: {
-  attributes?: { type: string; name: string; value: unknown }[];
+  attributes?: readonly { type: string; name?: string; value?: unknown }[];
 }): Props => {
   const p: Props = {};
   for (const attr of node.attributes ?? []) {
-    if (attr.type === 'mdxJsxAttribute') p[attr.name] = attr.value;
+    if (attr.type === 'mdxJsxAttribute' && attr.name) p[attr.name] = attr.value;
   }
   return p;
 };
@@ -215,8 +215,8 @@ interface ImgPart {
   width: number;
   height: number;
   sizes?: string;
-  loading: unknown;
-  decoding: unknown;
+  loading: string;
+  decoding: string;
 }
 
 interface PictureParts {
@@ -313,8 +313,8 @@ function buildPictureParts(props: Props): PictureParts {
       width: intrinsicWidth,
       height: intrinsicHeight,
       sizes: fallbackSizes,
-      loading: props.loading || 'lazy',
-      decoding: props.decoding || 'async',
+      loading: String(props.loading || 'lazy'),
+      decoding: String(props.decoding || 'async'),
     },
   };
 }
@@ -337,7 +337,7 @@ function toHtmlString(parts: PictureParts): string {
 }
 
 /** Serialize the parts as a hast element tree (for the .mdx replacement). */
-function toHastTree(parts: PictureParts) {
+function toHastTree(parts: PictureParts): HastContent {
   const sourceNodes = parts.sources.map((s) => ({
     type: 'element' as const,
     tagName: 'source',
@@ -366,7 +366,7 @@ function toHastTree(parts: PictureParts) {
   return {
     type: 'element' as const,
     tagName: 'picture',
-    properties: parts.pictureClass ? { className: parts.pictureClass } : {},
+    properties: parts.pictureClass ? { className: [parts.pictureClass] } : {},
     children: [...sourceNodes, imgNode],
   };
 }

@@ -1,4 +1,3 @@
-/* global URL, console */
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { create, insert, save } from '@orama/orama';

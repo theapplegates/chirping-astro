@@ -163,7 +163,7 @@ async function readBreakpoints() {
   try {
     return JSON.parse(await readFile(BREAKPOINTS_FILE, "utf8"));
   } catch (err) {
-    throw new Error(`Could not parse ${BREAKPOINTS_FILE}: ${err.message}`);
+    throw new Error(`Could not parse ${BREAKPOINTS_FILE}: ${err.message}`, { cause: err });
   }
 }
 

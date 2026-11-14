@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+echo ""
+echo "================================================="
+echo " ⏳ Running pre-push checks..."
+echo "================================================="
+
+# FORCE_COLOR=1 keeps the output readable in VS Code's Git output.
+if ! FORCE_COLOR=1 bun run check; then
+  echo ""
+  echo "================================================="
+  echo " ❌ PRE-PUSH FAILED"
+  echo " Fix the errors above and push again."
+  echo "================================================="
+  exit 1
+fi
+
+echo ""
+echo "================================================="
+echo " ✅ PRE-PUSH CHECKS PASSED"
+echo "================================================="

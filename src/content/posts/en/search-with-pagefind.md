@@ -28,7 +28,8 @@ bun run preview
 The build runs Astro and then `bun run search:index`. The indexer extracts
 rendered HTML from posts and pages (including MDX), excluding drafts, unlisted
 posts, navigation, and comments. It writes language-specific indexes to
-`dist/_orama/`. Search needs a production build; it is unavailable in the dev server.
+`dist/_orama/`. In dev, the index from the most recent build is served, so run
+a build before using search and rebuild after content changes.
 
 ## Customise search
 

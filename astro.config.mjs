@@ -7,9 +7,10 @@ import expressiveCode from 'astro-expressive-code';
 import icon from 'astro-icon';
 import { defineConfig, fontProviders, svgoOptimizer } from 'astro/config';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import satteriExternalLinks from 'satteri-external-links';
 import { katex } from '@nullpinter/satteri-katex';
 import { satteriAlert } from './src/plugins/satteri-alert';
@@ -109,6 +110,56 @@ function rewriteSitemapXslToRelative() {
   };
 }
 
+/**
+ * Serve the Orama indexes produced by `bun run build` from `dist/_orama`
+ * while running the dev server. Without this shim, `/_orama/<locale>.json`
+ * falls through to the `[...locale]` catch-all and Astro logs a 404 warning
+ * every time search is opened. A build is still required to create the index;
+ * this only makes the most recent build available to `bun run dev`.
+ *
+ * @returns {import('astro').AstroIntegration}
+ */
+function serveOramaIndexesInDev() {
+  const indexDirectory = fileURLToPath(new URL('./dist/_orama/', import.meta.url));
+  const prefix = `${BASE === '/' ? '' : BASE}/_orama/`;
+  /** @type {Set<string>} */
+  const warned = new Set();
+
+  return {
+    name: 'chirpy:serve-orama-indexes-in-dev',
+    hooks: {
+      'astro:server:setup': ({ server, logger }) => {
+        server.middlewares.use((req, res, next) => {
+          const pathname = (req.url ?? '').split('?')[0];
+          if (!pathname.startsWith(prefix)) return next();
+
+          const file = pathname.slice(prefix.length);
+          if (!/^[\w-]+\.json$/.test(file)) return next();
+
+          readFile(join(indexDirectory, file))
+            .then((contents) => {
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.setHeader('Cache-Control', 'no-store');
+              res.end(contents);
+            })
+            .catch(() => {
+              if (!warned.has(file)) {
+                warned.add(file);
+                logger.warn(
+                  `No Orama index found at dist/_orama/${file}. Run \`bun run build\` to generate it.`,
+                );
+              }
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ error: 'Search index not built.' }));
+            });
+        });
+      },
+    },
+  };
+}
+
 // https://astro.build/config
 export default defineConfig({
   site: SITE.url,
@@ -201,6 +252,7 @@ export default defineConfig({
   },
 
   integrations: [
+    serveOramaIndexesInDev(),
     icon({
       // Astro-Icon will tree-shake from @iconify-json/lucide so only the
       // icons actually referenced make it into the build.
@@ -267,6 +319,17 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    // Orama and Mermaid are imported lazily. Pre-bundle them so Vite does not
+    // discover them mid-session and force a full page reload (which also
+    // produces transient "Outdated Optimize Dep" 504s).
+    optimizeDeps: {
+      include: ['@orama/orama', 'mermaid'],
+    },
+    // Mermaid's lazily-loaded core is ~650 kB minified. It is only shipped
+    // to pages that render a diagram, so the default 500 kB warning is noise.
+    build: {
+      chunkSizeWarningLimit: 700,
+    },
   },
 
   experimental: {

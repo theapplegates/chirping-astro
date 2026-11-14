@@ -16,6 +16,7 @@
     "serve": "bun run build && bun preview",
     "astro": "astro",
     "typecheck": "astro check",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test",
     "test": "bun test",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",

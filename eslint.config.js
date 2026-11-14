@@ -35,6 +35,16 @@ export default [
     },
   },
   {
+    files: ['scripts/**/*.{js,mjs,ts}'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ['dist/**', '.astro/**', 'node_modules/**'],
   },
 ];

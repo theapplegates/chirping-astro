@@ -66,7 +66,7 @@ export const SITE: SiteConfig = {
   /** Number of posts per page on listings. */
   postsPerPage: 8,
   /** Display ISO 8601 date format if true, otherwise locale-aware. */
-  isoDates: false,
+  isoDates: true,
   /** Site-wide default for whether posts should display their featured image. */
   showFeaturedImages: true,
   /** Wrap the article body of posts and pages in a bordered, card-like container. */

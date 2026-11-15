@@ -8,6 +8,16 @@ translationKey: automatic-og-images
 toc: true
 ---
 
+<cloudinary-picture
+  src="assets/images/clay-banks-fVztFISaYzQ-unsplash"
+  alt="TODO: describe this image"
+  width="3400"
+  height="2267"
+  devices="1200|40|original,992|60|16:9,768|70|4:3,0|100|1:1"
+  breakpoints="200, 682, 966, 1212, 1400, 1618, 1874, 1983, 1988, 2000"
+  picture-class="responsive-picture"
+/>
+
 When you share a blog post link on Twitter, Discord, Slack, or
 LinkedIn, the platform fetches an **Open Graph image** to display as a
 visual preview. Without one, your link looks like a plain text snippet

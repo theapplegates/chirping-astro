@@ -1,7 +1,7 @@
 ---
 title: 'Automatic OG images: zero-effort social previews'
 description: 'How this theme generates beautiful Open Graph images at build time using Satori and Resvg — and how to customise or disable the feature.'
-pubDate: 2026-05-01
+pubDate: 2026-11-14
 tags: [seo, og-image, satori, configuration]
 categories: [Features]
 translationKey: automatic-og-images
